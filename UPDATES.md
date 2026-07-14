@@ -23,3 +23,17 @@ above was never a hard assignment. Not touching that entry per the append-only r
 the correction here instead.
 Files: none (local CLAUDE.md config updated, not pushed)
 Status: Next: generate the ~50 synthetic entities + conflicting documents.
+
+## [Jul 14, 12:45 PM] — Kartigan
+Committed: Dataset generator (50 fictional entities, 18 banking-themed, docs at all
+4 ratios) + query harness (both models, retry/backoff, per-call error capture,
+confidence elicitation, CSV output). Mock pilot passed: 24/24 rows clean, all fields
+populated, error-recovery tested.
+IMPORTANT: Claude 3.5 Haiku was RETIRED by Anthropic on Feb 19, 2026 (API returns 404).
+Harness defaults to claude-haiku-4-5, the official drop-in replacement — note this in
+the Research Brief. Model IDs are overridable via CLI flags.
+Files: data/generate_dataset.py, data/entities.json, harness/run_experiment.py,
+requirements.txt, results/pilot_mock.csv, .gitignore
+Status: Pipeline ready. BLOCKED on API keys — export OPENAI_API_KEY + ANTHROPIC_API_KEY,
+then run the real pilot: `python harness/run_experiment.py --entities 3`.
+Full-run cost estimate: <$0.50 total (~$0.02 gpt-4o-mini + ~$0.15 haiku-4-5).
