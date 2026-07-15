@@ -49,3 +49,18 @@ Status: WIP commit — real pilot NOT yet run (blocked on GEMINI_API_KEY + ANTHR
 Next: with keys in a local .env, run `python harness/run_experiment.py --entities 3` to
 confirm both model strings resolve (no 404) and capture real token usage. Rough full-run
 cost ~$0.30 (~$0.18 gemini-3.5-flash + ~$0.11 haiku-4-5); to be refined from the pilot.
+
+## [Jul 15, 1:31 PM] — Kartigan
+Committed: Model B switched from Anthropic (Claude Haiku 4.5) to OpenAI via Azure OpenAI
+Service, to use Azure for Students credits. Harness now uses the AzureOpenAI client;
+config read from AZURE_OPENAI_ENDPOINT / AZURE_OPENAI_API_KEY / AZURE_OPENAI_DEPLOYMENT
+(default gpt-4o-mini) / AZURE_OPENAI_API_VERSION (default 2024-10-21). On Azure the API
+`model` arg is the DEPLOYMENT name, not the base model name. OpenAI SDK retries transient
+errors internally (max_retries); Gemini path keeps its backoff wrapper. requirements.txt
+updated (dropped anthropic; added google-genai + python-dotenv, which were missing).
+Offline mock pilot 24/24 clean; missing-config guard now checks the Azure vars.
+Files: harness/run_experiment.py, requirements.txt, UPDATES.md
+Status: Study is now Gemini 3.5 Flash vs. OpenAI (gpt-4o-mini on Azure). Real pilot still
+NOT run — BLOCKED on GEMINI_API_KEY + Azure config (endpoint, key, deployment name) in a
+local .env. Next: `python harness/run_experiment.py --entities 3`, then refine cost from
+real usage.
