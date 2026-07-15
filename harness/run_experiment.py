@@ -5,17 +5,21 @@ conflicting documents, queries both models, elicits a stated confidence,
 and appends one row per (entity, ratio, model) to a CSV with full metadata.
 
 Models:
-  - Gemini: gemini-3.5-flash       (key from GEMINI_API_KEY; override --gemini-model)
+  - Gemini: gemini-3.1-flash-lite  (key from GEMINI_API_KEY; override --gemini-model)
   - OpenAI: via Azure OpenAI Service (deployment from AZURE_OPENAI_DEPLOYMENT
             or --azure-deployment)
 
 Both run on paid, pay-as-you-go tiers. Model B is served through Azure OpenAI
 Service (Azure for Students credits) rather than the direct OpenAI API.
 
-NOTE 1: gemini-3.5-flash is Google's current frontier Flash model (GA 2026-05-19),
-the most intelligent Flash tier. The rolling alias "gemini-flash-latest" also
-works via --gemini-model, but we pin the explicit ID so the run is reproducible
-and unambiguously on 3.5 Flash.
+NOTE 1: gemini-3.5-flash (the frontier Flash tier) is capped at 20 requests/day
+on this project's free quota -- unusable for a 200-call run (50 entities x 4
+ratios x 1 model). gemini-3.1-flash-lite gets 500 req/day and 15 req/min on the
+same free tier, which comfortably covers the full run. Confirmed against the
+live models.list() response for this API key -- there is no plain
+"gemini-3.1-flash" on this account, only the -lite variant (GA) plus preview/
+image/tts variants. Document the quota-driven downgrade from 3.5 Flash to
+3.1 Flash-Lite in the Research Brief.
 
 NOTE 2: On Azure OpenAI, the `model` argument to the API is the *deployment name*
 you created in the Azure AI Foundry portal, NOT the base model name. Record the
@@ -59,10 +63,16 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_PATH = REPO_ROOT / "data" / "entities.json"
 RESULTS_DIR = REPO_ROOT / "results"
 
-DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"  # current frontier Flash (GA 2026-05-19)
-DEFAULT_AZURE_DEPLOYMENT = "gpt-4o-mini"   # Azure OpenAI deployment name
-DEFAULT_AZURE_API_VERSION = "2024-10-21"   # Azure OpenAI API version (GA)
-MAX_TOKENS = 300
+DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite"  # 500 req/day, 15/min on free tier
+DEFAULT_AZURE_DEPLOYMENT = "gpt-5-mini"     # Azure OpenAI deployment name
+DEFAULT_AZURE_API_VERSION = "2024-12-01-preview"  # supports GPT-5 reasoning models
+# Both models "think" before answering (Gemini thinking tokens; GPT-5
+# reasoning tokens). Those count against the output budget, so give both
+# generous headroom well above the ~30 tokens the visible JSON needs — a tight
+# cap gets consumed by reasoning and truncates the JSON mid-object. GPT-5 also
+# requires max_completion_tokens (not max_tokens) and only the default temperature.
+GEMINI_MAX_OUTPUT_TOKENS = 2048
+OPENAI_MAX_COMPLETION_TOKENS = 2000
 MAX_RETRIES = 4  # exponential-backoff attempts on 429/5xx/connection errors
 
 SYSTEM_PROMPT = (
@@ -119,11 +129,15 @@ def parse_response(raw):
 # ---------------------------------------------------------------------------
 # Model callers: each returns (raw_text, prompt_tokens, completion_tokens)
 
-def call_with_backoff(fn, max_retries=MAX_RETRIES, base_delay=1.0, max_delay=30.0):
+def call_with_backoff(fn, max_retries=MAX_RETRIES, base_delay=1.0, max_delay=65.0):
     """Retry `fn` on transient errors (429 / 5xx / connection) with exponential
     backoff + jitter. Used for the Gemini path; the OpenAI SDK does this
     internally via max_retries. Non-transient errors (e.g. 400/404) raise
-    immediately."""
+    immediately.
+
+    When a 429 carries a server-supplied retryDelay (Gemini per-minute quota
+    resets), honor it instead of the shorter exponential delay so the retry
+    actually lands after the quota window rather than failing again."""
     from google.genai import errors as genai_errors
 
     def _is_transient(exc):
@@ -132,6 +146,10 @@ def call_with_backoff(fn, max_retries=MAX_RETRIES, base_delay=1.0, max_delay=30.
             return True
         # ServerError is 5xx; connection/timeout errors have no HTTP code
         return isinstance(exc, genai_errors.ServerError) or code is None
+
+    def _server_retry_delay(exc):
+        m = re.search(r"retry.?delay['\"]?\s*:\s*['\"]?(\d+)", str(exc), re.I)
+        return int(m.group(1)) if m else None
 
     last = None
     for attempt in range(max_retries):
@@ -143,7 +161,10 @@ def call_with_backoff(fn, max_retries=MAX_RETRIES, base_delay=1.0, max_delay=30.
             last = exc
         except (genai_errors.ServerError, genai_errors.APIError) as exc:
             last = exc
-        delay = min(base_delay * (2 ** attempt) + random.uniform(0, 0.5), max_delay)
+        backoff = base_delay * (2 ** attempt)
+        server_delay = _server_retry_delay(last) or 0
+        # wait at least as long as the server asks (+small buffer), capped
+        delay = min(max(backoff, server_delay + 1) + random.uniform(0, 0.5), max_delay)
         time.sleep(delay)
     raise last
 
@@ -156,7 +177,7 @@ def call_gemini(client, model_id, prompt):
             contents=prompt,
             config=types.GenerateContentConfig(
                 system_instruction=SYSTEM_PROMPT,
-                max_output_tokens=MAX_TOKENS,
+                max_output_tokens=GEMINI_MAX_OUTPUT_TOKENS,
             ),
         )
     resp = call_with_backoff(_do)
@@ -169,11 +190,12 @@ def call_gemini(client, model_id, prompt):
 
 def call_openai(client, deployment, prompt):
     # On Azure OpenAI, `model` is the deployment name, not the base model name.
-    # The OpenAI SDK retries transient errors (429/5xx/connection) internally
-    # via max_retries, so no explicit backoff wrapper is needed here.
+    # GPT-5 reasoning models require max_completion_tokens (not max_tokens) and
+    # only accept the default temperature. The OpenAI SDK retries transient
+    # errors (429/5xx/connection) internally via max_retries.
     resp = client.chat.completions.create(
         model=deployment,
-        max_tokens=MAX_TOKENS,
+        max_completion_tokens=OPENAI_MAX_COMPLETION_TOKENS,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt},

@@ -64,3 +64,29 @@ Status: Study is now Gemini 3.5 Flash vs. OpenAI (gpt-4o-mini on Azure). Real pi
 NOT run — BLOCKED on GEMINI_API_KEY + Azure config (endpoint, key, deployment name) in a
 local .env. Next: `python harness/run_experiment.py --entities 3`, then refine cost from
 real usage.
+
+## [Jul 15, 5:16 PM] — Kartigan
+Committed: REAL PILOT PASSED — 24/24 calls clean, 0 errors, every CSV field populated,
+confidence captured for both models. Final model pair:
+  Model A: gemini-3.1-flash-lite   Model B: gpt-5-mini (Azure OpenAI)
+Three bugs found and fixed via the pilot:
+ 1. gpt-5-mini is a GPT-5 reasoning model — requires max_completion_tokens (rejects
+    max_tokens) and needs headroom for hidden reasoning tokens.
+ 2. Gemini is also a thinking model; the old 300-token cap was consumed by thinking
+    tokens and truncated the JSON mid-object (parse failures on the conflicting
+    ratios, which reason more). Both models now get ~2K output budget.
+ 3. Backoff now honors the server-supplied retryDelay on 429s (Gemini's per-minute
+    quota needs ~28s, far longer than the old ~8s exponential ceiling).
+MODEL CHOICE — document in the Research Brief: gemini-3.5-flash is capped at 20 req/day
+on this project's free quota, unusable for a 200-call run, so we dropped to
+gemini-3.1-flash-lite (500 req/day, 15 req/min). Flash-LITE is Google's smallest/cheapest
+tier — it is NOT a frontier model, so do not describe it as one (this matters for the AI
+Use Transparency Statement). Confirmed the exact model ID against live models.list().
+Measured usage (per call avg): gemini 286 in / 26 out; gpt-5-mini 280 in / 229 out
+(the high output is reasoning tokens).
+Full 50-entity run projection (200 calls/model): gemini ~57K in / ~5K out — $0, fits the
+500/day free tier; gpt-5-mini ~56K in / ~46K out — well under $1 on Azure credits.
+Runtime is bound by Gemini's 15 req/min: ~15+ min for the full run.
+Files: harness/run_experiment.py, results/pilot_gemini_gpt5mini.csv, UPDATES.md
+Status: Harness VERIFIED and ready to scale to the full 50-entity run
+(`python harness/run_experiment.py`). Next: full run, then analysis + Research Brief.
