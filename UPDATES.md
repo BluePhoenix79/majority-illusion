@@ -37,3 +37,15 @@ requirements.txt, results/pilot_mock.csv, .gitignore
 Status: Pipeline ready. BLOCKED on API keys — export OPENAI_API_KEY + ANTHROPIC_API_KEY,
 then run the real pilot: `python harness/run_experiment.py --entities 3`.
 Full-run cost estimate: <$0.50 total (~$0.02 gpt-4o-mini + ~$0.15 haiku-4-5).
+
+## [Jul 14, 11:17 PM] — Kartigan
+Committed: Switched Model A from OpenAI gpt-4o-mini to Gemini 3.5 Flash (gemini-3.5-flash,
+current frontier Flash, GA 2026-05-19) via the google-genai SDK, key from GEMINI_API_KEY.
+Model B unchanged (Claude Haiku 4.5). Added exponential-backoff+jitter retry for the
+Gemini path (Anthropic SDK already retries internally); optional .env auto-load; .env
+gitignored. Offline mock pilot still 24/24 clean, all fields populated.
+Files: harness/run_experiment.py, .gitignore, UPDATES.md
+Status: WIP commit — real pilot NOT yet run (blocked on GEMINI_API_KEY + ANTHROPIC_API_KEY).
+Next: with keys in a local .env, run `python harness/run_experiment.py --entities 3` to
+confirm both model strings resolve (no 404) and capture real token usage. Rough full-run
+cost ~$0.30 (~$0.18 gemini-3.5-flash + ~$0.11 haiku-4-5); to be refined from the pilot.

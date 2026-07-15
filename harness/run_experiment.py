@@ -4,19 +4,32 @@ For each entity x ratio combination, builds a prompt containing the
 conflicting documents, queries both models, elicits a stated confidence,
 and appends one row per (entity, ratio, model) to a CSV with full metadata.
 
-Models (override with --openai-model / --anthropic-model):
-  - OpenAI:    gpt-4o-mini            (key from OPENAI_API_KEY)
+Models (override with --gemini-model / --anthropic-model):
+  - Gemini:    gemini-3.5-flash       (key from GEMINI_API_KEY)
   - Anthropic: claude-haiku-4-5       (key from ANTHROPIC_API_KEY)
 
-NOTE: the project plan named Claude 3.5 Haiku, but claude-3-5-haiku-20241022
-was RETIRED by Anthropic on Feb 19, 2026 and now returns 404. claude-haiku-4-5
-is the official drop-in replacement (fastest/cheapest current tier). Document
-this substitution in the Research Brief.
+Both run on paid, pay-as-you-go tiers.
 
-Error handling: both SDKs retry transient errors (429/5xx/timeouts) with
-exponential backoff via max_retries; on top of that, any failure on a single
-call is caught and recorded in the CSV's `error` column so the run continues.
-Rows are flushed to disk after every call, so a crash loses nothing.
+NOTE 1: the project plan named Claude 3.5 Haiku, but claude-3-5-haiku-20241022
+was RETIRED by Anthropic on Feb 19, 2026 and now returns 404. claude-haiku-4-5
+(Claude Haiku 4.5) is the official drop-in replacement (fastest/cheapest current
+tier). Document this substitution in the Research Brief.
+
+NOTE 2: gemini-3.5-flash is Google's current frontier Flash model (GA 2026-05-19),
+the most intelligent Flash tier. The rolling alias "gemini-flash-latest" also
+works via --gemini-model, but we pin the explicit ID so the run is reproducible
+and unambiguously on 3.5 Flash.
+
+Error handling: the Anthropic SDK retries transient errors (429/5xx/timeouts)
+with exponential backoff via max_retries; the Gemini path is wrapped in an
+equivalent exponential-backoff retry (see call_with_backoff). On top of that,
+any failure on a single call is caught and recorded in the CSV's `error`
+column so the run continues. Rows are flushed to disk after every call, so a
+crash loses nothing.
+
+Keys are read from the environment (GEMINI_API_KEY, ANTHROPIC_API_KEY). For
+convenience a .env file in the repo root is auto-loaded if present (.env is
+gitignored, so keys are never committed).
 
 Usage:
     python harness/run_experiment.py --mock --entities 3           # pipeline test, no API calls
@@ -28,8 +41,10 @@ import argparse
 import csv
 import json
 import os
+import random
 import re
 import sys
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,10 +53,10 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_PATH = REPO_ROOT / "data" / "entities.json"
 RESULTS_DIR = REPO_ROOT / "results"
 
-DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
+DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"  # current frontier Flash (GA 2026-05-19)
 DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5"  # 3.5 Haiku retired 2026-02-19
 MAX_TOKENS = 300
-MAX_RETRIES = 4  # SDK-level exponential backoff on 429/5xx/connection errors
+MAX_RETRIES = 4  # exponential-backoff attempts on 429/5xx/connection errors
 
 SYSTEM_PROMPT = (
     "You are a careful research assistant. Answer the user's question using "
@@ -97,19 +112,51 @@ def parse_response(raw):
 # ---------------------------------------------------------------------------
 # Model callers: each returns (raw_text, prompt_tokens, completion_tokens)
 
-def call_openai(client, model_id, prompt):
-    resp = client.chat.completions.create(
-        model=model_id,
-        max_tokens=MAX_TOKENS,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": prompt},
-        ],
-    )
-    usage = resp.usage
-    return (resp.choices[0].message.content or "",
-            usage.prompt_tokens if usage else "",
-            usage.completion_tokens if usage else "")
+def call_with_backoff(fn, max_retries=MAX_RETRIES, base_delay=1.0, max_delay=30.0):
+    """Retry `fn` on transient errors (429 / 5xx / connection) with exponential
+    backoff + jitter. Used for the Gemini path; the Anthropic SDK does this
+    internally. Non-transient errors (e.g. 400/404) raise immediately."""
+    from google.genai import errors as genai_errors
+
+    def _is_transient(exc):
+        code = getattr(exc, "code", None) or getattr(exc, "status_code", None)
+        if code in (408, 409, 429) or (isinstance(code, int) and code >= 500):
+            return True
+        # ServerError is 5xx; connection/timeout errors have no HTTP code
+        return isinstance(exc, genai_errors.ServerError) or code is None
+
+    last = None
+    for attempt in range(max_retries):
+        try:
+            return fn()
+        except genai_errors.ClientError as exc:
+            if not _is_transient(exc):  # 400/404 etc. — don't retry
+                raise
+            last = exc
+        except (genai_errors.ServerError, genai_errors.APIError) as exc:
+            last = exc
+        delay = min(base_delay * (2 ** attempt) + random.uniform(0, 0.5), max_delay)
+        time.sleep(delay)
+    raise last
+
+
+def call_gemini(client, model_id, prompt):
+    from google.genai import types
+    def _do():
+        return client.models.generate_content(
+            model=model_id,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
+                max_output_tokens=MAX_TOKENS,
+            ),
+        )
+    resp = call_with_backoff(_do)
+    text = resp.text or ""
+    usage = resp.usage_metadata
+    ptok = usage.prompt_token_count if usage else ""
+    ctok = usage.candidates_token_count if usage else ""
+    return text, ptok, ctok
 
 
 def call_anthropic(client, model_id, prompt):
@@ -139,6 +186,15 @@ class MockClient:
 
 
 def main():
+    # Load a .env from the repo root if present (never required; keys can also
+    # come straight from the environment). Silently skipped if python-dotenv
+    # isn't installed.
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(REPO_ROOT / ".env")
+    except ImportError:
+        pass
+
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--entities", type=int, default=None,
                     help="limit to first N entities (default: all)")
@@ -146,9 +202,9 @@ def main():
                     help="run only these entity IDs, e.g. E001 E002")
     ap.add_argument("--ratios", nargs="*", default=None,
                     help="subset of ratios, e.g. 3:1 2:2 (default: all)")
-    ap.add_argument("--models", nargs="*", choices=["openai", "anthropic"],
-                    default=["openai", "anthropic"])
-    ap.add_argument("--openai-model", default=DEFAULT_OPENAI_MODEL)
+    ap.add_argument("--models", nargs="*", choices=["gemini", "anthropic"],
+                    default=["gemini", "anthropic"])
+    ap.add_argument("--gemini-model", default=DEFAULT_GEMINI_MODEL)
     ap.add_argument("--anthropic-model", default=DEFAULT_ANTHROPIC_MODEL)
     ap.add_argument("--mock", action="store_true",
                     help="no API calls; canned responses (pipeline test)")
@@ -169,24 +225,24 @@ def main():
     if args.mock:
         for provider in args.models:
             mock = MockClient(provider)
-            model_id = {"openai": args.openai_model,
+            model_id = {"gemini": args.gemini_model,
                         "anthropic": args.anthropic_model}[provider] + "-MOCK"
             callers[provider] = (model_id, mock.call)
     else:
         missing = []
-        if "openai" in args.models and not os.environ.get("OPENAI_API_KEY"):
-            missing.append("OPENAI_API_KEY")
+        if "gemini" in args.models and not os.environ.get("GEMINI_API_KEY"):
+            missing.append("GEMINI_API_KEY")
         if "anthropic" in args.models and not os.environ.get("ANTHROPIC_API_KEY"):
             missing.append("ANTHROPIC_API_KEY")
         if missing:
             sys.exit(f"Missing environment variable(s): {', '.join(missing)}. "
-                     f"Export them or use --mock.")
-        if "openai" in args.models:
-            from openai import OpenAI
-            oa = OpenAI(max_retries=MAX_RETRIES)
-            callers["openai"] = (
-                args.openai_model,
-                lambda p, e, c=oa, m=args.openai_model: call_openai(c, m, p))
+                     f"Export them (or add to a .env file) or use --mock.")
+        if "gemini" in args.models:
+            from google import genai
+            gm = genai.Client()  # reads GEMINI_API_KEY from the environment
+            callers["gemini"] = (
+                args.gemini_model,
+                lambda p, e, c=gm, m=args.gemini_model: call_gemini(c, m, p))
         if "anthropic" in args.models:
             import anthropic
             an = anthropic.Anthropic(max_retries=MAX_RETRIES)
