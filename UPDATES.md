@@ -109,3 +109,22 @@ with a previous key. The gpt-5-mini/Azure side is green (fire test clean).
 Files: harness/run_experiment.py, UPDATES.md
 Status: Code ready for the full 50-entity run, PENDING the Gemini key fix. Re-run the fire
 test first: `python harness/run_experiment.py --entities 1 --ratios 3:1`.
+
+## [Jul 15, 10:52 PM] — Kartigan
+Committed: ROOT CAUSE of the 403 API_KEY_SERVICE_BLOCKED found and fixed. The Gemini key
+was provisioned for VERTEX AI EXPRESS MODE (Google Cloud credits) -- scoped to
+aiplatform.googleapis.com, not AI Studio's generativelanguage.googleapis.com. That's why
+even ListModels was blocked: the key was never valid for the AI Studio endpoint at all,
+regardless of model name, quota, or restrictions.
+Fix: harness now supports a Vertex Express Mode client path, toggled by a new env var
+GEMINI_USE_VERTEX=1 (set in the local .env). Express Mode client shape is
+genai.Client(vertexai=True, api_key=...) -- NO project/location; the installed SDK
+(google-genai 2.11.0) rejects project/location alongside api_key as mutually exclusive.
+Default (var unset) stays the plain AI Studio client, so a future AI-Studio-scoped key
+still works with zero code changes -- just don't set the var.
+Fire test via the harness itself (not a standalone probe) now PASSES both models:
+  gemini-3.5-flash: ans='Vantry Heights' conf=90  in=270 out=20
+  gpt-5-mini:        ans='Vantry Heights' conf=80  in=271 out=152
+Files: harness/run_experiment.py, UPDATES.md
+Status: Both models verified live. Full pilot (--entities 3) not yet re-run under this
+config -- do that next, then the full 50-entity run on go-ahead.
