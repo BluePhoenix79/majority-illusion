@@ -32,7 +32,23 @@ RATIO_ORDER = ["2:2", "3:1", "4:1", "4:0"]
 CONFLICT_RATIOS = ["2:2", "3:1", "4:1"]
 MAJORITY_SHARE = {"2:2": 0.50, "3:1": 0.75, "4:1": 0.80, "4:0": 1.00}
 
-MODEL_LABELS = {"gemini": "Gemini 3.1 Flash-Lite", "openai": "GPT-5 mini (Azure)"}
+# Labels derive from model_id (not provider) since the team has swapped models
+# several times; unknown ids fall back to the raw id string.
+MODEL_LABEL_PREFIXES = [
+    ("gemini-3.5-flash", "Gemini 3.5 Flash"),
+    ("gemini-3.1-flash-lite", "Gemini 3.1 Flash-Lite"),
+    ("gpt-5-mini", "GPT-5 mini (Azure)"),
+    ("gpt-4o-mini", "GPT-4o mini (Azure)"),
+    ("claude-haiku-4-5", "Claude Haiku 4.5"),
+]
+
+
+def pretty_model_label(model_id):
+    mid = str(model_id).lower()
+    for prefix, label in MODEL_LABEL_PREFIXES:
+        if mid.startswith(prefix):
+            return label + (" [mock]" if mid.endswith("-mock") else "")
+    return str(model_id)
 
 # Validated categorical palette (dataviz reference palette, light mode).
 SURFACE = "#fcfcfb"
@@ -41,7 +57,9 @@ INK_2 = "#52514e"
 MUTED = "#898781"
 GRID = "#e1e0d9"
 BASELINE = "#c3c2b7"
-MODEL_COLORS = {"gemini": "#2a78d6", "openai": "#eb6834"}   # blue / orange
+MODEL_COLORS = {"gemini": "#2a78d6",     # blue
+                "openai": "#eb6834",     # orange
+                "anthropic": "#1baf7a"}  # aqua
 CATEGORY_COLORS = {
     "MAJ": "#2a78d6",       # blue
     "MIN": "#eb6834",       # orange
@@ -64,9 +82,24 @@ def _norm(value):
     return str(value).lower().replace(",", "").strip()
 
 
+_NUM_RE = re.compile(r"-?\d+(?:\.\d+)?")
+
+
 def _value_in(value, text):
-    """Whole-token match so '240' doesn't hit inside '2400'."""
-    return re.search(rf"(?<![\w.]){re.escape(_norm(value))}(?![\w.])", text) is not None
+    """Does the answer text assert this claim value?
+
+    Numeric values (including '$12', '3.5%') compare as numbers, so '$12'
+    matches '12.00' or '12 dollars' but never '120'. Non-numeric values use
+    whole-token string matching so '240' can't hit inside '2400'.
+    """
+    text = _norm(text)
+    v = _norm(value).strip("$%")
+    try:
+        target = float(v)
+    except ValueError:
+        return re.search(
+            rf"(?<![\w.]){re.escape(_norm(value))}(?![\w.])", text) is not None
+    return any(float(n) == target for n in _NUM_RE.findall(text))
 
 
 def classify(row):
@@ -85,8 +118,13 @@ def classify(row):
     return "FLAG" if flagged else "OTHER"
 
 
-def load_results(csv_paths=None):
-    """Load one or more result CSVs into a scored DataFrame."""
+def load_results(csv_paths=None, strategy=None):
+    """Load one or more result CSVs into a scored DataFrame.
+
+    `strategy` filters to one prompting strategy (e.g. "standard" or "cot")
+    when the harness ran with several; mixing strategies in one figure would
+    silently pool two different experiments.
+    """
     if not csv_paths:
         runs = sorted(RESULTS_DIR.glob("run_*.csv"))
         pilot = RESULTS_DIR / "pilot_gemini_gpt5mini.csv"
@@ -102,11 +140,19 @@ def load_results(csv_paths=None):
     df = pd.concat(frames, ignore_index=True)
     print(f"Loaded {len(df)} rows from: {', '.join(Path(p).name for p in csv_paths)}")
 
+    if "strategy" in df.columns:
+        present = sorted(set(df["strategy"]) - {""})
+        if strategy:
+            df = df[df["strategy"] == strategy]
+            print(f"Filtered to strategy={strategy}: {len(df)} rows")
+        elif len(present) > 1:
+            print(f"WARNING: CSV mixes prompting strategies {present}; these "
+                  "figures pool them. Re-run with --strategy <name> to split.")
+
     df["category"] = df.apply(classify, axis=1)
     df["confidence"] = pd.to_numeric(df["parsed_confidence"], errors="coerce")
     df["majority_share"] = df["ratio"].map(MAJORITY_SHARE)
-    df["model_label"] = df["model_provider"].map(
-        lambda m: MODEL_LABELS.get(m, m))
+    df["model_label"] = df["model_id"].map(pretty_model_label)
     return df
 
 
@@ -156,6 +202,9 @@ def make_arg_parser(description):
                          "else the real pilot CSV")
     ap.add_argument("--output", default=None,
                     help="output PNG path (default: visualizations/figures/<name>.png)")
+    ap.add_argument("--strategy", default=None,
+                    help="filter to one prompting strategy (standard/cot) when "
+                         "the CSV contains several")
     return ap
 
 

@@ -119,3 +119,34 @@ with a previous key. The gpt-5-mini/Azure side is green (fire test clean).
 Files: harness/run_experiment.py, UPDATES.md
 Status: Code ready for the full 50-entity run, PENDING the Gemini key fix. Re-run the fire
 test first: `python harness/run_experiment.py --entities 1 --ratios 3:1`.
+
+## [Jul 15, 11:12 PM] — Sohan
+Added: visualizations/ folder — four plot scripts + shared scoring module, all verified
+end-to-end against the real pilot CSV:
+  fig1 plot_majority_curve.py     majority-follow rate vs ratio, 95% Wilson CIs (H1)
+  fig2 plot_flag_rate.py          conflict-flag rate at 2:2/3:1/4:1 (H2)
+  fig3 plot_confidence.py         mean confidence by ratio, MAJ vs MIN answers (H3)
+  fig4 plot_outcome_breakdown.py  stacked MAJ/MIN/COM/FLAG shares per ratio/model (H4)
+Scoring rubric lives in visualizations/common.py: responses auto-classified MAJ/MIN/COM/
+FLAG (+OTHER/UNSCORED) with whole-token matching (so "240" never matches inside "2400")
+and conflict-language patterns for FLAG. NOTE: auto-classification is a first pass — the
+planned 15% two-annotator kappa check still applies; spot-check `category` against
+`raw_response` before quoting numbers in the brief.
+Scripts default to the latest results/run_*.csv (fall back to the pilot), print the
+underlying counts to stdout, and save 300-dpi PNGs to visualizations/figures/.
+requirements.txt: added pandas + matplotlib.
+Early pilot signal (n=3/point, NOT quotable): both models 100% majority-follow at 3:1 and
+4:1; flag rate 67% at 2:2 -> 0% at 3:1/4:1; gpt-5-mini confidence climbs 70->88->98 with
+skew. The 2:2 -> 3:1 flagging cliff is worth watching in the full run.
+Files: visualizations/ (common.py, 4 plot scripts, README.md, figures/), requirements.txt
+Status: Figures pipeline ready, verified compatible with tonight's merged changes:
+ - model labels now derive from model_id (handles the 3.5-flash switch + anthropic),
+ - numeric claim matching handles the new banking formats ($12 / 3.5% match "12.00"
+   or "3.5 percent", never "$120"),
+ - confidence figure auto-detects the 0-100 -> 1-5 scale change (don't mix CSVs
+   from both sides of it in one figure),
+ - new trial_index/strategy/doc_positions columns tolerated; --strategy flag added
+   to every script since pooling standard+CoT rows would mix two experiments.
+All four scripts re-verified against both the real pilot (old schema) and a mock run
+on the merged harness (new schema). Next: full run (pending Kartigan's Gemini key
+fix), regenerate figures with no args, then the 15% double-scoring + kappa.

@@ -23,9 +23,15 @@ GROUPS = [("MAJ", "Followed majority (correct)", CATEGORY_COLORS["MAJ"]),
 
 def main():
     args = make_arg_parser(__doc__.splitlines()[0]).parse_args()
-    df = load_results(args.csv)
+    df = load_results(args.csv, args.strategy)
     scored = df[df["category"].isin(["MAJ", "MIN"])
                 & df["confidence"].notna()]
+
+    # The harness elicited confidence as 0-100 before Jul 15 and 1-5 after;
+    # detect which scale this CSV uses. (Don't mix CSVs across the change.)
+    scale_max = 5 if scored["confidence"].max() <= 5 else 100
+    print(f"Detected confidence scale: 1-{scale_max}"
+          if scale_max == 5 else "Detected confidence scale: 0-100")
 
     providers = sorted(scored["model_provider"].unique())
     apply_style()
@@ -50,7 +56,8 @@ def main():
             ax.bar(xs, means, width=width, color=color, label=label,
                    edgecolor=SURFACE, linewidth=2)
             for x, mean, n in zip(xs, means, ns):
-                ax.annotate(f"{mean:.0f}", (x, mean), xytext=(0, 4),
+                ax.annotate(f"{mean:.1f}" if scale_max == 5 else f"{mean:.0f}",
+                            (x, mean), xytext=(0, 4),
                             textcoords="offset points", ha="center",
                             fontsize=9, color=color)
                 ax.annotate(f"n={n}", (x, 0), xytext=(0, 4),
@@ -62,12 +69,14 @@ def main():
         ax.set_xticks(range(len(RATIO_ORDER)))
         ax.set_xticklabels([r + ("\n(control)" if r == "4:0" else "")
                             for r in RATIO_ORDER])
-        ax.set_ylim(0, 108)
+        ax.set_ylim(0, scale_max * 1.08)
         ax.set_xlabel("Evidence ratio")
         ax.set_title(group["model_label"].iloc[0] if len(group) else provider,
                      fontsize=11)
 
-    axes[0][0].set_ylabel("Mean self-reported confidence (0-100)")
+    axes[0][0].set_ylabel(
+        f"Mean self-reported confidence "
+        f"({'1-5' if scale_max == 5 else '0-100'})")
     handles, labels = axes[0][0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="upper center", ncol=len(labels),
                bbox_to_anchor=(0.5, -0.04), fontsize=9)

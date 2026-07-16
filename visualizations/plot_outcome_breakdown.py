@@ -18,7 +18,7 @@ from common import (CATEGORY_COLORS, CATEGORY_ORDER, RATIO_ORDER, SURFACE,
 
 def main():
     args = make_arg_parser(__doc__.splitlines()[0]).parse_args()
-    df = load_results(args.csv)
+    df = load_results(args.csv, args.strategy)
 
     providers = sorted(df["model_provider"].unique())
     apply_style()

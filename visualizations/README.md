@@ -24,8 +24,14 @@ Scoring (in `common.py`, per the research plan): each response is classified as
 **MAJ** (matches majority claim), **MIN** (matches minority), **COM** (mentions
 both without refusing), **FLAG** (notes the conflict / refuses to pick), plus
 **OTHER** (matches neither) and **UNSCORED** (API error or unparseable JSON).
-Answer matching is whole-token, so `240` never matches inside `2400`.
-Proportion error bars are 95% Wilson intervals.
+Numeric claim values (`$12`, `3.5%`, `240`) are compared as numbers, so
+`12.00`/`3.5 percent` match but `2400` never matches `240`; other values use
+whole-token string matching. Proportion error bars are 95% Wilson intervals.
+
+If a CSV contains both prompting strategies (standard + CoT), pass
+`--strategy standard` or `--strategy cot` — pooling them mixes two experiments.
+The confidence figure auto-detects the elicitation scale (0-100 in pre-Jul-15
+CSVs, 1-5 after); don't mix CSVs from both sides of that change in one figure.
 
 The automatic FLAG/COM keyword matching is a first pass — the plan calls for
 human double-scoring of a 15% sample (Cohen's kappa), so spot-check the

@@ -17,7 +17,7 @@ from common import (CONFLICT_RATIOS, MODEL_COLORS, MUTED, SURFACE, apply_style,
 
 def main():
     args = make_arg_parser(__doc__.splitlines()[0]).parse_args()
-    df = load_results(args.csv)
+    df = load_results(args.csv, args.strategy)
     scored = df[(df["category"] != "UNSCORED")
                 & (df["ratio"].isin(CONFLICT_RATIOS))]
 
