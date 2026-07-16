@@ -96,3 +96,8 @@ Committed: Merged remote updates (Gemini/Azure OpenAI integration, reasoning tok
 Files: data/entities.json, data/generate_dataset.py, harness/run_experiment.py, results/pilot_mock.csv
 Status: Pipeline ready and fully merged. Next: run the full experiment with standard and/or CoT prompting strategies.
 
+## [Jul 15, 7:40 PM] — Pranav
+Committed: Documented the core hypotheses, variables, experimental design, and pipeline details in research_brief.md.
+Files: research_brief.md, UPDATES.md
+Status: Design and hypotheses fully documented. Ready to execute the full 50-entity run next.
+
