@@ -91,6 +91,20 @@ ANTHROPIC_MAX_TOKENS = 2048
 OPENROUTER_MAX_TOKENS = 2048
 MAX_RETRIES = 4  # exponential-backoff attempts on 429/5xx/connection errors
 
+# Reasoning-depth controls, one per model, verified against each SDK/API before
+# use rather than assumed (see UPDATES.md for how each was checked):
+#   - Gemini: native google-genai ThinkingConfig.thinking_level. Confirmed via
+#     the installed SDK's pydantic model_fields that this field exists and
+#     ThinkingLevel.MEDIUM is a real enum member (not guessed).
+#   - OpenRouter (Claude Haiku 4.5 / DeepSeek V4 Flash, switched via
+#     OPENROUTER_MODEL): one unified `reasoning` field OpenRouter translates
+#     per-provider -- see openrouter_reasoning_param() below. Anthropic models
+#     get reasoning.max_tokens (-> Claude's native budget_tokens server-side);
+#     everything else gets reasoning.effort.
+GEMINI_THINKING_LEVEL = "MEDIUM"          # Google's default-optimized setting
+OPENROUTER_ANTHROPIC_BUDGET_TOKENS = 2048  # tighter than Claude's default budget
+OPENROUTER_DEFAULT_EFFORT = "high"         # DeepSeek and any non-Anthropic model
+
 # USD per 1M tokens, as (input, output). Token COUNTS reported by the counter are
 # measured from each API response and are exact; the dollar figures are only as
 # good as this table.
@@ -309,6 +323,9 @@ def call_gemini(client, model_id, prompt, strategy="standard"):
             config=types.GenerateContentConfig(
                 system_instruction=sys_prompt,
                 max_output_tokens=GEMINI_MAX_OUTPUT_TOKENS,
+                thinking_config=types.ThinkingConfig(
+                    thinking_level=types.ThinkingLevel[GEMINI_THINKING_LEVEL],
+                ),
             ),
         )
     resp = call_with_backoff(_do)
@@ -351,11 +368,30 @@ def call_anthropic(client, model_id, prompt, strategy="standard"):
     return text, resp.usage.input_tokens, resp.usage.output_tokens
 
 
+def openrouter_reasoning_param(model_id):
+    """Build OpenRouter's unified `reasoning` field for the configured model.
+
+    OpenRouter exposes ONE field (`reasoning`) whose shape it translates to
+    each provider's native mechanism server-side:
+      - Anthropic models: reasoning.max_tokens -> Claude's native budget_tokens
+      - Most other models (DeepSeek, Gemini-via-OpenRouter, etc.): reasoning.effort
+    This lets OPENROUTER_MODEL be swapped (e.g. deepseek/deepseek-v4-flash <->
+    anthropic/claude-haiku-4.5) with no other code change -- the right shape is
+    picked automatically from the model id.
+    """
+    mid = model_id.lower()
+    if "claude" in mid or "anthropic" in mid:
+        return {"max_tokens": OPENROUTER_ANTHROPIC_BUDGET_TOKENS}
+    return {"effort": OPENROUTER_DEFAULT_EFFORT}
+
+
 def call_openrouter(client, model_id, prompt, strategy="standard"):
     # OpenRouter exposes an OpenAI-compatible chat completions endpoint. DeepSeek
     # (a standard chat model, not a GPT-5-style reasoning model) takes max_tokens,
     # not max_completion_tokens. The OpenAI SDK retries transient errors
-    # (429/5xx/connection) internally via max_retries.
+    # (429/5xx/connection) internally via max_retries. `reasoning` is an
+    # OpenRouter-specific field, not part of the OpenAI schema, so it goes
+    # through extra_body rather than a typed SDK parameter.
     sys_prompt = SYSTEM_PROMPT_COT if strategy == "cot" else SYSTEM_PROMPT
     resp = client.chat.completions.create(
         model=model_id,
@@ -364,6 +400,7 @@ def call_openrouter(client, model_id, prompt, strategy="standard"):
             {"role": "system", "content": sys_prompt},
             {"role": "user", "content": prompt},
         ],
+        extra_body={"reasoning": openrouter_reasoning_param(model_id)},
     )
     usage = resp.usage
     return (resp.choices[0].message.content or "",

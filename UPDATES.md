@@ -280,3 +280,40 @@ BUDGET FOR THE PLANNED RE-RUN: 6 ratios x 50 entities x 2 strategies x 3 models 
 vs the 800 that cost ~$1.73 -> roughly $4-5. Still trivial, but CoT is the expensive half.
 Files: harness/run_experiment.py, harness/token_report.py, UPDATES.md
 Status: Counter is live. Third model still pending; no experiment re-run yet.
+
+## [Jul 16, 12:51 PM] — Kartigan
+
+Committed: Per-model reasoning-depth controls. Not run -- code only, per instruction.
+
+VERIFIED THE OPENROUTER SLUG before using it (same discipline as the earlier Gemini 3.5
+Flash mistake): Claude Haiku 4.5's OpenRouter model id is `anthropic/claude-haiku-4.5`
+($1/$5 per 1M, matches the already-verified rate in PRICING -- good cross-check).
+
+CONFIRMED: DeepSeek V4 Flash and Claude Haiku 4.5 both go through the SAME OpenRouter slot
+(OPENROUTER_API_KEY, OpenAI-compatible client at base_url=openrouter.ai/api/v1) -- there is
+NO separate Anthropic key involved when routing Claude through OpenRouter. Swapping
+OPENROUTER_MODEL between the two is a pure config change.
+
+Added `openrouter_reasoning_param(model_id)`: OpenRouter exposes one unified `reasoning`
+field it translates server-side per provider -- reasoning.max_tokens for Anthropic models
+(-> Claude's native budget_tokens), reasoning.effort for everything else (DeepSeek, etc).
+Auto-detects "claude"/"anthropic" in the model id, so switching OPENROUTER_MODEL needs no
+other code change. Passed via extra_body since `reasoning` isn't part of the OpenAI SDK's
+typed schema.
+  DeepSeek V4 Flash (via OpenRouter):     reasoning: {"effort": "high"}
+  Claude Haiku 4.5 (via OpenRouter):      reasoning: {"max_tokens": 2048}
+
+Added native thinking_level to call_gemini() (separate mechanism -- Gemini runs on its own
+direct google-genai SDK path, not through OpenRouter). VERIFIED against the installed SDK's
+pydantic model_fields (not assumed) that GenerateContentConfig.thinking_config accepts a
+ThinkingConfig with a thinking_level field, and that ThinkingLevel.MEDIUM is a real enum
+member -- confirmed by constructing the actual object, not just reading source.
+  Gemini 3.5 Flash: thinking_config=ThinkingConfig(thinking_level=ThinkingLevel.MEDIUM)
+
+New constants: GEMINI_THINKING_LEVEL="MEDIUM", OPENROUTER_ANTHROPIC_BUDGET_TOKENS=2048,
+OPENROUTER_DEFAULT_EFFORT="high" -- all near the top of the file, easy to tune.
+Files: harness/run_experiment.py, UPDATES.md
+Status: Code verified to construct correctly (checked openrouter_reasoning_param() output
+for both models + built a real Gemini ThinkingConfig object) but NOT run against a live API
+yet -- do a small fire test before the next full run to confirm these params are actually
+accepted server-side, not just constructed client-side without error.
