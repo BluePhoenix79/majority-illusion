@@ -4,33 +4,33 @@ For each entity x ratio combination, builds a prompt containing the
 conflicting documents, queries both models, elicits a stated confidence,
 and appends one row per (entity, ratio, trial, model) to a CSV with full metadata.
 
-Models:
-  - Gemini: gemini-3.5-flash       (key from GEMINI_API_KEY; override --gemini-model)
-  - OpenAI: via Azure OpenAI Service (deployment from AZURE_OPENAI_DEPLOYMENT
-            or --azure-deployment)
+Providers (one CSV row per model, per condition):
+  - gemini   : gemini-3.5-flash, via the native google-genai SDK.
+               Key from GEMINI_API_KEY; override --gemini-model.
+  - deepseek : the OpenRouter slot. Runs whatever OPENROUTER_MODEL points at --
+               deepseek/deepseek-v4-flash by default, or anthropic/claude-haiku-4.5
+               to test Claude. BOTH go through the same OPENROUTER_API_KEY; swap
+               the model string, nothing else. (The slot is named "deepseek" for
+               historical reasons; it serves any OpenRouter model.)
+  - anthropic: OPTIONAL, opt-in only. Claude via a *direct* Anthropic API key.
+               Not part of the current study -- Claude is tested through the
+               OpenRouter slot above, no separate key needed. Kept as an escape
+               hatch; runs only with an explicit --models anthropic.
 
-Both run on paid, pay-as-you-go tiers. Model B is served through Azure OpenAI
-Service (Azure for Students credits) rather than the direct OpenAI API.
+The study models (gemini + the OpenRouter slot) run by default. gemini-3.5-flash
+is Google's current frontier Flash model (GA 2026-05-19).
 
-NOTE 1: gemini-3.5-flash is Google's current frontier Flash model (GA 2026-05-19).
-An earlier free-tier key capped it at 20 requests/day, which forced a temporary
-downgrade to gemini-3.1-flash-lite (500/day); that key has since been replaced
-with one that has unrestricted 3.5 Flash access, so we are back on the frontier
-Flash tier and the Flash-Lite downgrade no longer applies. Both 3.5 Flash and
-gpt-5-mini are current-generation models, so the Research Brief can describe the
-pair as such -- but see the thinking-token note below: 3.5 Flash reasons before
-answering and needs output headroom.
+NOTE: gemini-3.5-flash reasons before answering; its thinking tokens count
+against the output budget, so a tight cap truncates the JSON mid-object. Both
+providers get generous output headroom (see the *_MAX_* constants). Per-model
+reasoning depth is set explicitly -- see GEMINI_THINKING_LEVEL and
+openrouter_reasoning_param().
 
-NOTE 2: On Azure OpenAI, the `model` argument to the API is the *deployment name*
-you created in the Azure AI Foundry portal, NOT the base model name. Record the
-underlying base model (e.g. gpt-4o-mini) in the Research Brief since the CSV
-stores the deployment name.
-
-Error handling: the OpenAI SDK retries transient errors (429/5xx/timeouts) with
-exponential backoff via max_retries; the Gemini path is wrapped in an equivalent
-exponential-backoff retry (see call_with_backoff). On top of that, any failure
-on a single call is caught and recorded in the CSV's `error` column so the run
-continues. Rows are flushed to disk after every call, so a crash loses nothing.
+Error handling: the OpenAI-compatible SDK (OpenRouter) retries transient errors
+(429/5xx/timeouts) internally via max_retries; the Gemini path is wrapped in an
+equivalent retry (see call_with_backoff, which also handles httpx network
+errors). Any single-call failure is caught and recorded in the CSV's `error`
+column so the run continues; rows are flushed after every call.
 
 Config is read from the environment:
   GEMINI_API_KEY
@@ -42,17 +42,17 @@ Config is read from the environment:
                               from Vertex, and vice versa; use whichever matches
                               how the key was provisioned). Express Mode takes
                               ONLY the API key -- no project/location needed.
-  AZURE_OPENAI_ENDPOINT      e.g. https://<resource>.openai.azure.com/
-  AZURE_OPENAI_API_KEY
-  AZURE_OPENAI_DEPLOYMENT    your deployment name (default: gpt-4o-mini)
-  AZURE_OPENAI_API_VERSION   (default: 2024-10-21)
+  OPENROUTER_API_KEY         one key for the OpenRouter slot (DeepSeek or Claude)
+  OPENROUTER_MODEL           which OpenRouter model to run (default:
+                              deepseek/deepseek-v4-flash; also --openrouter-model)
+  ANTHROPIC_API_KEY          only if you opt into the direct --models anthropic slot
 A .env file in the repo root is auto-loaded if present (.env is gitignored, so
 secrets are never committed).
 
 Usage:
-    python harness/run_experiment.py --mock --entities 3           # pipeline test, no API calls
-    python harness/run_experiment.py --entities 3                  # real pilot (needs both keys)
-    python harness/run_experiment.py                               # full 50-entity run
+    python harness/run_experiment.py --mock --entities 3   # pipeline test, no API calls
+    python harness/run_experiment.py --entities 3          # small live pilot
+    python harness/run_experiment.py                       # full 50-entity run
 """
 
 import argparse
@@ -74,19 +74,14 @@ DATA_PATH = REPO_ROOT / "data" / "entities.json"
 RESULTS_DIR = REPO_ROOT / "results"
 
 DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"  # current frontier Flash (GA 2026-05-19)
-DEFAULT_AZURE_DEPLOYMENT = "gpt-5-mini"     # Azure OpenAI deployment name
-DEFAULT_AZURE_API_VERSION = "2024-12-01-preview"  # supports GPT-5 reasoning models
-DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
-DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5"  # 3.5 Haiku retired 2026-02-19
 DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-v4-flash"  # DeepSeek via OpenRouter
+DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5"  # only for the opt-in direct slot
 
-# Both models "think" before answering (Gemini thinking tokens; GPT-5
-# reasoning tokens). Those count against the output budget, so give both
-# generous headroom well above the ~30 tokens the visible JSON needs — a tight
-# cap gets consumed by reasoning and truncates the JSON mid-object. GPT-5 also
-# requires max_completion_tokens (not max_tokens) and only the default temperature.
+# Models "think" before answering, and those reasoning/thinking tokens count
+# against the output budget -- a tight cap gets consumed by reasoning and
+# truncates the JSON mid-object. Give generous headroom well above the ~30
+# tokens the visible JSON answer needs.
 GEMINI_MAX_OUTPUT_TOKENS = 2048
-OPENAI_MAX_COMPLETION_TOKENS = 2000
 ANTHROPIC_MAX_TOKENS = 2048
 OPENROUTER_MAX_TOKENS = 2048
 MAX_RETRIES = 4  # exponential-backoff attempts on 429/5xx/connection errors
@@ -107,26 +102,26 @@ OPENROUTER_DEFAULT_EFFORT = "high"         # DeepSeek and any non-Anthropic mode
 
 # USD per 1M tokens, as (input, output). Token COUNTS reported by the counter are
 # measured from each API response and are exact; the dollar figures are only as
-# good as this table.
+# good as this table. Keys are matched as a prefix of the CSV's model_id, so both
+# the OpenRouter form (anthropic/claude-haiku-4.5) and the direct form
+# (claude-haiku-4-5) are listed.
 #
 #   gemini-3.5-flash      VERIFIED against Google's published rate.
-#   gpt-5-mini            NOT VERIFIED -- could not confirm a published rate for
-#                         this exact model id; this is the nearest comparable
-#                         small GPT-5-class tier. Treat its cost as indicative
-#                         only, and check the Azure pricing page before quoting
-#                         any number in the Research Brief.
-#   gemini-3.1-flash-lite NOT VERIFIED (cheapest Flash tier; only used for a few
-#                         early pilot calls).
+#   claude-haiku-4.5      VERIFIED ($1/$5) against OpenRouter's + Anthropic's pages.
+#   deepseek/*            DELIBERATELY ABSENT -- could not verify a rate, and this
+#                         file does not guess prices. DeepSeek rows get exact token
+#                         counts but no cost (shown as n/a). Add a verified rate
+#                         here if you want its cost.
+#   gemini-3.1-flash-lite NOT VERIFIED (only used for a few early pilot calls).
 #
 # A model_id absent from this table still gets exact token counts, just no cost.
 PRICING = {
-    "gemini-3.5-flash":      (1.50, 9.00),   # verified
-    "gemini-3.1-flash-lite": (0.10, 0.40),   # unverified estimate
-    "gpt-5-mini":            (0.75, 4.50),   # unverified estimate
-    "gpt-4o-mini":           (0.15, 0.60),   # unverified estimate
-    "claude-haiku-4-5":      (1.00, 5.00),   # verified
+    "gemini-3.5-flash":           (1.50, 9.00),   # verified
+    "gemini-3.1-flash-lite":      (0.10, 0.40),   # unverified estimate
+    "anthropic/claude-haiku-4.5": (1.00, 5.00),   # verified (OpenRouter slug)
+    "claude-haiku-4-5":           (1.00, 5.00),   # verified (direct-API id)
 }
-UNVERIFIED_PRICES = {"gemini-3.1-flash-lite", "gpt-5-mini", "gpt-4o-mini"}
+UNVERIFIED_PRICES = {"gemini-3.1-flash-lite"}
 
 
 def price_for(model_id):
@@ -336,26 +331,6 @@ def call_gemini(client, model_id, prompt, strategy="standard"):
     return text, ptok, ctok
 
 
-def call_openai(client, deployment, prompt, strategy="standard"):
-    # On Azure OpenAI, `model` is the deployment name, not the base model name.
-    # GPT-5 reasoning models require max_completion_tokens (not max_tokens) and
-    # only accept the default temperature. The OpenAI SDK retries transient
-    # errors (429/5xx/connection) internally via max_retries.
-    sys_prompt = SYSTEM_PROMPT_COT if strategy == "cot" else SYSTEM_PROMPT
-    resp = client.chat.completions.create(
-        model=deployment,
-        max_completion_tokens=OPENAI_MAX_COMPLETION_TOKENS,
-        messages=[
-            {"role": "system", "content": sys_prompt},
-            {"role": "user", "content": prompt},
-        ],
-    )
-    usage = resp.usage
-    return (resp.choices[0].message.content or "",
-            usage.prompt_tokens if usage else "",
-            usage.completion_tokens if usage else "")
-
-
 def call_anthropic(client, model_id, prompt, strategy="standard"):
     sys_prompt = SYSTEM_PROMPT_COT if strategy == "cot" else SYSTEM_PROMPT
     resp = client.messages.create(
@@ -386,11 +361,10 @@ def openrouter_reasoning_param(model_id):
 
 
 def call_openrouter(client, model_id, prompt, strategy="standard"):
-    # OpenRouter exposes an OpenAI-compatible chat completions endpoint. DeepSeek
-    # (a standard chat model, not a GPT-5-style reasoning model) takes max_tokens,
-    # not max_completion_tokens. The OpenAI SDK retries transient errors
-    # (429/5xx/connection) internally via max_retries. `reasoning` is an
-    # OpenRouter-specific field, not part of the OpenAI schema, so it goes
+    # OpenRouter exposes an OpenAI-compatible chat completions endpoint, so this
+    # uses the standard OpenAI SDK (which retries 429/5xx/connection errors
+    # internally via max_retries) pointed at OpenRouter's base_url. `reasoning`
+    # is an OpenRouter-specific field, not part of the OpenAI schema, so it goes
     # through extra_body rather than a typed SDK parameter.
     sys_prompt = SYSTEM_PROMPT_COT if strategy == "cot" else SYSTEM_PROMPT
     resp = client.chat.completions.create(
@@ -449,20 +423,17 @@ def main():
     ap.add_argument("--ratios", nargs="*", default=None,
                     help="subset of ratios, e.g. 3:1 2:2 (default: all)")
     ap.add_argument("--models", nargs="*",
-                    choices=["gemini", "openai", "anthropic", "deepseek"],
-                    default=["gemini", "openai", "deepseek"])
+                    choices=["gemini", "deepseek", "anthropic"],
+                    default=["gemini", "deepseek"],
+                    help="providers to run (default: gemini + the OpenRouter "
+                         "slot; 'anthropic' is the opt-in direct-API escape hatch)")
     ap.add_argument("--gemini-model", default=DEFAULT_GEMINI_MODEL)
-    ap.add_argument("--azure-deployment", default=None,
-                    help="Azure OpenAI deployment name "
-                         "(default: AZURE_OPENAI_DEPLOYMENT env or gpt-5-mini)")
-    ap.add_argument("--azure-api-version", default=None,
-                    help="Azure OpenAI API version "
-                         "(default: AZURE_OPENAI_API_VERSION env or 2024-12-01-preview)")
-    ap.add_argument("--openai-model", default=DEFAULT_OPENAI_MODEL)
-    ap.add_argument("--anthropic-model", default=DEFAULT_ANTHROPIC_MODEL)
     ap.add_argument("--openrouter-model", default=None,
-                    help="OpenRouter model id for the deepseek provider "
-                         "(default: OPENROUTER_MODEL env or deepseek/deepseek-v4-flash)")
+                    help="OpenRouter model id for the deepseek slot "
+                         "(default: OPENROUTER_MODEL env or deepseek/deepseek-v4-flash; "
+                         "set to anthropic/claude-haiku-4.5 to test Claude)")
+    ap.add_argument("--anthropic-model", default=DEFAULT_ANTHROPIC_MODEL,
+                    help="model id for the opt-in direct Anthropic slot")
     ap.add_argument("--trials", type=int, default=1,
                     help="number of repetitions per condition (default: 1)")
     ap.add_argument("--strategy", choices=["standard", "cot"], default="standard",
@@ -482,13 +453,7 @@ def main():
     ratios = args.ratios or list(dataset["ratios"])
     run_seed = dataset.get("seed", 20260714)
 
-    # Resolve Azure OpenAI settings: CLI flag > env var > built-in default.
-    azure_deployment = (args.azure_deployment
-                        or os.environ.get("AZURE_OPENAI_DEPLOYMENT")
-                        or DEFAULT_AZURE_DEPLOYMENT)
-    azure_api_version = (args.azure_api_version
-                         or os.environ.get("AZURE_OPENAI_API_VERSION")
-                         or DEFAULT_AZURE_API_VERSION)
+    # Which OpenRouter model the deepseek slot runs: CLI flag > env var > default.
     openrouter_model = (args.openrouter_model
                         or os.environ.get("OPENROUTER_MODEL")
                         or DEFAULT_OPENROUTER_MODEL)
@@ -500,25 +465,19 @@ def main():
             mock = MockClient(provider)
             if provider == "gemini":
                 model_id = args.gemini_model + "-MOCK"
-            elif provider == "openai":
-                model_id = (azure_deployment or args.openai_model) + "-MOCK"
-            elif provider == "anthropic":
-                model_id = args.anthropic_model + "-MOCK"
             elif provider == "deepseek":
                 model_id = openrouter_model + "-MOCK"
+            elif provider == "anthropic":
+                model_id = args.anthropic_model + "-MOCK"
             callers[provider] = (model_id, lambda p, e, m=mock, s=args.strategy: m.call(p, e, s))
     else:
         missing = []
         if "gemini" in args.models and not os.environ.get("GEMINI_API_KEY"):
             missing.append("GEMINI_API_KEY")
-        if "openai" in args.models:
-            for var in ("AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_API_KEY"):
-                if not os.environ.get(var):
-                    missing.append(var)
-        if "anthropic" in args.models and not os.environ.get("ANTHROPIC_API_KEY"):
-            missing.append("ANTHROPIC_API_KEY")
         if "deepseek" in args.models and not os.environ.get("OPENROUTER_API_KEY"):
             missing.append("OPENROUTER_API_KEY")
+        if "anthropic" in args.models and not os.environ.get("ANTHROPIC_API_KEY"):
+            missing.append("ANTHROPIC_API_KEY")
         if missing:
             sys.exit(f"Missing environment variable(s): {', '.join(missing)}. "
                      f"Export them (or add to a .env file) or use --mock.")
@@ -537,26 +496,10 @@ def main():
             callers["gemini"] = (
                 args.gemini_model,
                 lambda p, e, c=gm, m=args.gemini_model, s=args.strategy: call_gemini(c, m, p, s))
-        if "openai" in args.models:
-            from openai import AzureOpenAI
-            az = AzureOpenAI(
-                azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-                api_key=os.environ["AZURE_OPENAI_API_KEY"],
-                api_version=azure_api_version,
-                max_retries=MAX_RETRIES,
-            )
-            callers["openai"] = (
-                azure_deployment,
-                lambda p, e, c=az, m=azure_deployment, s=args.strategy: call_openai(c, m, p, s))
-        if "anthropic" in args.models:
-            import anthropic
-            an = anthropic.Anthropic(max_retries=MAX_RETRIES)
-            callers["anthropic"] = (
-                args.anthropic_model,
-                lambda p, e, c=an, m=args.anthropic_model, s=args.strategy: call_anthropic(c, m, p, s))
         if "deepseek" in args.models:
-            # OpenRouter gateway (OpenAI-compatible) -> DeepSeek. Separate from the
-            # Azure "openai" slot so all three run together in one pass.
+            # OpenRouter gateway (OpenAI-compatible). Runs whatever OPENROUTER_MODEL
+            # points at -- DeepSeek by default, or anthropic/claude-haiku-4.5 to
+            # test Claude through the same key.
             from openai import OpenAI
             dr = OpenAI(
                 base_url="https://openrouter.ai/api/v1",
@@ -566,6 +509,14 @@ def main():
             callers["deepseek"] = (
                 openrouter_model,
                 lambda p, e, c=dr, m=openrouter_model, s=args.strategy: call_openrouter(c, m, p, s))
+        if "anthropic" in args.models:
+            # Opt-in only: Claude via a DIRECT Anthropic key, separate from the
+            # OpenRouter slot above. Not part of the default study.
+            import anthropic
+            an = anthropic.Anthropic(max_retries=MAX_RETRIES)
+            callers["anthropic"] = (
+                args.anthropic_model,
+                lambda p, e, c=an, m=args.anthropic_model, s=args.strategy: call_anthropic(c, m, p, s))
 
     # --- run ------------------------------------------------------------------
     run_id = uuid.uuid4().hex[:8]

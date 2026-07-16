@@ -317,3 +317,49 @@ Status: Code verified to construct correctly (checked openrouter_reasoning_param
 for both models + built a real Gemini ThinkingConfig object) but NOT run against a live API
 yet -- do a small fire test before the next full run to confirm these params are actually
 accepted server-side, not just constructed client-side without error.
+
+## [Jul 16, 1:00 PM] — Kartigan
+
+Committed: Removed the Azure OpenAI (gpt-5-mini) provider from the harness. Code-only, not
+run. The study's models are now Gemini 3.5 Flash (native SDK) + the OpenRouter slot
+(DeepSeek V4 Flash by default, or Claude Haiku 4.5 via OPENROUTER_MODEL).
+
+REMOVED: call_openai(), the AzureOpenAI client block, --azure-deployment / --azure-api-version
+/ --openai-model args, DEFAULT_AZURE_* / DEFAULT_OPENAI_MODEL / OPENAI_MAX_COMPLETION_TOKENS
+constants, the AZURE_OPENAI_* env handling and missing-var check, and the gpt-5-mini /
+gpt-4o-mini PRICING rows + their docstring notes. --models no longer offers "openai"; the
+default is now ["gemini", "deepseek"].
+
+KEPT (flagged, not removed -- separate decision, not "azure stuff"):
+  - The direct "anthropic" slot (call_anthropic + ANTHROPIC_API_KEY). It's opt-in only
+    (--models anthropic), NOT in the default, and is the direct-API path -- redundant with
+    Claude-via-OpenRouter, which is how we actually test Claude. Left as an escape hatch.
+    Remove it too if you want a leaner file; say so and I will.
+  - The OpenRouter slot is still internally named "deepseek" even though it also serves
+    Claude (model_provider column says "deepseek", model_id says the real model). Analysis
+    keys off model_id so figures are correct, but the slot name is misleading -- consider
+    renaming to "openrouter" (touches common.py MODEL_COLORS too). Left as-is to avoid
+    breaking teammate analysis scripts without a heads-up.
+
+PRICING now: gemini-3.5-flash ($1.50/$9.00, verified) and claude-haiku-4.5 ($1/$5, verified
+for both the OpenRouter slug anthropic/claude-haiku-4.5 and the direct id). DeepSeek is
+DELIBERATELY unpriced (could not verify a rate; this file doesn't guess) -- its rows get
+exact token counts but n/a cost. Side effect: historical gpt-5-mini rows in
+results/run_full_*.csv now show n/a cost too; their exact past cost (~$1.01) is preserved in
+the Jul 16 12:44 AM / earlier entries and in git history.
+
+HISTORICAL DATA: results/run_full_standard.csv and run_full_cot.csv were collected on the OLD
+model pair (gemini + gpt-5-mini) and are now superseded by whatever the new 3-model runs
+produce. NOT deleting them (real data, not mine to discard) -- but do not pool them with new
+gemini+deepseek+claude runs; they are a different experiment.
+
+VERIFIED (no live API calls): compiles clean; --help parses with the new --models choices;
+mock run on the default (gemini+deepseek) is clean, no errors, correct providers/model_ids;
+mock with the opt-in anthropic slot works; price_for() maps gemini-3.5-flash and
+anthropic/claude-haiku-4.5 to verified rates and returns n/a for deepseek/gpt-5-mini;
+token_report.py still runs over the existing CSVs; no orphaned references to any removed name.
+Files: harness/run_experiment.py, UPDATES.md
+Status: Harness is clean and ready for a live fire test of the new 3-model setup. Reminder
+from the previous entry still stands: the reasoning params (Gemini thinking_level, OpenRouter
+reasoning field) have only been verified to CONSTRUCT client-side, not yet accepted by the
+live APIs -- do a small fire test before the first full run.
