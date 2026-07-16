@@ -249,3 +249,34 @@ visualizations/common.py, results/run_full_cot.csv, UPDATES.md
 Status: No experiment re-run yet (intentional -- third model pending). Once the third model
 is wired in: add it to MODEL_LABELS/MODEL_COLORS in visualizations/common.py, then re-run
 both strategies over the full 6-ratio dataset (600 calls/strategy).
+
+## [Jul 16, 1:20 AM] — Kartigan
+
+Committed: Token counter. Every run now prints a per-model token + cost summary when it
+finishes, and `python harness/token_report.py` tallies any/all saved result CSVs after the
+fact (pure accounting, makes no API calls). `--by-file` gives a per-file breakdown. Mock rows
+are excluded/unpriced -- they never hit an API and their token counts are chars/4 guesses.
+
+USAGE TO DATE (measured from the prompt_tokens/completion_tokens the harness already
+recorded -- these counts are exact):
+  model                  calls    input    output     total
+  gemini-3.5-flash         400  119,607    60,285   179,892
+  gpt-5-mini               412  120,491   204,001   324,492
+  gemini-3.1-flash-lite     12    3,427       310     3,737
+  TOTAL                    824  243,525   264,596   508,121
+Estimated cost ~$1.73 total (~$0.72 gemini-3.5-flash + ~$1.01 gpt-5-mini).
+
+PRICING CAVEAT: only gemini-3.5-flash ($1.50/$9.00 per 1M) and claude-haiku-4-5 are verified
+rates. I could NOT confirm a published rate for the gpt-5-mini model id specifically, so its
+entry in PRICING is the nearest comparable small GPT-5-class tier ($0.75/$4.50) and is marked
+UNVERIFIED (flagged with * in the counter output). Do not quote gpt-5-mini cost in the brief
+without checking the Azure pricing page. Token counts are unaffected by this.
+
+COST DRIVER -- OUTPUT tokens dominate, because both models reason before answering. gpt-5-mini
+emits more output than input (204K out vs 120K in). CoT is far more expensive than standard:
+gpt-5-mini output was 161,908 (CoT) vs 39,350 (standard) = 4.1x; gemini 46,178 vs 14,107 =
+3.3x. Budget accordingly.
+BUDGET FOR THE PLANNED RE-RUN: 6 ratios x 50 entities x 2 strategies x 3 models = 1,800 calls,
+vs the 800 that cost ~$1.73 -> roughly $4-5. Still trivial, but CoT is the expensive half.
+Files: harness/run_experiment.py, harness/token_report.py, UPDATES.md
+Status: Counter is live. Third model still pending; no experiment re-run yet.
