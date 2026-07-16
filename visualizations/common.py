@@ -50,6 +50,8 @@ MODEL_LABEL_PREFIXES = [
     ("gpt-5-mini", "GPT-5 mini (Azure)"),
     ("gpt-4o-mini", "GPT-4o mini (Azure)"),
     ("claude-haiku-4-5", "Claude Haiku 4.5"),
+    ("deepseek/deepseek-v4-flash", "DeepSeek V4 Flash"),
+    ("deepseek", "DeepSeek"),  # fallback for other deepseek ids
 ]
 
 
@@ -69,7 +71,8 @@ GRID = "#e1e0d9"
 BASELINE = "#c3c2b7"
 # blue / orange / violet. Plot scripts fall back to MUTED (gray) for an unknown
 # provider, so a new model renders but is easy to miss -- add it here.
-MODEL_COLORS = {"gemini": "#2a78d6", "openai": "#eb6834", "anthropic": "#4a3aa7"}
+MODEL_COLORS = {"gemini": "#2a78d6", "openai": "#eb6834",
+                "anthropic": "#4a3aa7", "deepseek": "#1baf7a"}  # blue/orange/violet/aqua
 CATEGORY_COLORS = {
     "MAJ": "#2a78d6",       # blue
     "MIN": "#eb6834",       # orange

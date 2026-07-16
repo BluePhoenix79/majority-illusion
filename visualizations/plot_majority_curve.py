@@ -56,7 +56,7 @@ def main():
     ax.set_yticklabels(["0%", "25%", "50%", "75%", "100%"])
     ax.set_xlabel("Evidence ratio (majority : minority documents)")
     ax.set_ylabel("Majority-follow rate")
-    ax.set_title("Majority-illusion curve: models follow the document majority")
+    ax.set_title("Majority-follow rate by evidence ratio")
     ax.legend(loc="lower right", fontsize=9)
 
     save_figure(fig, args, "fig1_majority_curve.png")

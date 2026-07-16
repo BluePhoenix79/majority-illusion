@@ -1,8 +1,12 @@
 """Figure 2 — conflict-flag rate vs. evidence ratio (H2, conflict blindness).
 
 How often each model explicitly says "the sources disagree" instead of picking
-a side, across the three conflict conditions. H2 predicts this safety behavior
-fades as the majority grows more lopsided (2:2 -> 3:1 -> 4:1).
+a side, across the conflict conditions. H2 predicts this safety behavior fades
+as the majority grows more lopsided.
+
+Grouped bars, one bar per model at each ratio. (At small n the 0% bars still
+draw wide Wilson error bars, which looks busy; at the full n=50 those whiskers
+shrink and the chart reads cleanly.)
 
 Usage:
     python visualizations/plot_flag_rate.py
@@ -22,9 +26,12 @@ def main():
                 & (df["ratio"].isin(CONFLICT_RATIOS))]
 
     apply_style()
-    fig, ax = plt.subplots(figsize=(6.5, 4.5))
+    fig, ax = plt.subplots(figsize=(7.5, 4.5))
     providers = sorted(scored["model_provider"].unique())
-    width = 0.36
+    # Fit all model bars inside the unit category spacing with a gap between
+    # groups; a fixed width overflows once there are >2 models and adjacent
+    # ratios overlap.
+    width = 0.8 / max(len(providers), 1)
 
     for mi, provider in enumerate(providers):
         group = scored[scored["model_provider"] == provider]
@@ -49,14 +56,15 @@ def main():
                edgecolor=SURFACE, linewidth=2)
         ax.errorbar(offsets, rates, yerr=[errs_lo, errs_hi], fmt="none",
                     ecolor=MUTED, elinewidth=1, capsize=3)
-        for x, rate in zip(offsets, rates):
-            ax.annotate(f"{rate:.0%}", (x, rate), xytext=(0, 10),
-                        textcoords="offset points", ha="center", fontsize=9,
-                        color=color)
+        for x, rate, hi in zip(offsets, rates, errs_hi):
+            if rate > 0:  # a 0% bar is absent; labeling the baseline just clutters
+                ax.annotate(f"{rate:.0%}", (x, rate + hi), xytext=(0, 4),
+                            textcoords="offset points", ha="center", fontsize=8,
+                            color=color)
 
     ax.set_xticks(range(len(CONFLICT_RATIOS)))
     ax.set_xticklabels(CONFLICT_RATIOS)
-    ax.set_ylim(0, 1.05)
+    ax.set_ylim(0, 1.15)
     ax.set_yticks([0, 0.25, 0.5, 0.75, 1.0])
     ax.set_yticklabels(["0%", "25%", "50%", "75%", "100%"])
     ax.set_xlabel("Evidence ratio (majority : minority documents)")

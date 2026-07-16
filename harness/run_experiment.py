@@ -78,6 +78,7 @@ DEFAULT_AZURE_DEPLOYMENT = "gpt-5-mini"     # Azure OpenAI deployment name
 DEFAULT_AZURE_API_VERSION = "2024-12-01-preview"  # supports GPT-5 reasoning models
 DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5"  # 3.5 Haiku retired 2026-02-19
+DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-v4-flash"  # DeepSeek via OpenRouter
 
 # Both models "think" before answering (Gemini thinking tokens; GPT-5
 # reasoning tokens). Those count against the output budget, so give both
@@ -87,6 +88,7 @@ DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5"  # 3.5 Haiku retired 2026-02-19
 GEMINI_MAX_OUTPUT_TOKENS = 2048
 OPENAI_MAX_COMPLETION_TOKENS = 2000
 ANTHROPIC_MAX_TOKENS = 2048
+OPENROUTER_MAX_TOKENS = 2048
 MAX_RETRIES = 4  # exponential-backoff attempts on 429/5xx/connection errors
 
 # USD per 1M tokens, as (input, output). Token COUNTS reported by the counter are
@@ -347,6 +349,28 @@ def call_anthropic(client, model_id, prompt, strategy="standard"):
     )
     text = "".join(b.text for b in resp.content if b.type == "text")
     return text, resp.usage.input_tokens, resp.usage.output_tokens
+
+
+def call_openrouter(client, model_id, prompt, strategy="standard"):
+    # OpenRouter exposes an OpenAI-compatible chat completions endpoint. DeepSeek
+    # (a standard chat model, not a GPT-5-style reasoning model) takes max_tokens,
+    # not max_completion_tokens. The OpenAI SDK retries transient errors
+    # (429/5xx/connection) internally via max_retries.
+    sys_prompt = SYSTEM_PROMPT_COT if strategy == "cot" else SYSTEM_PROMPT
+    resp = client.chat.completions.create(
+        model=model_id,
+        max_tokens=OPENROUTER_MAX_TOKENS,
+        messages=[
+            {"role": "system", "content": sys_prompt},
+            {"role": "user", "content": prompt},
+        ],
+    )
+    usage = resp.usage
+    return (resp.choices[0].message.content or "",
+            usage.prompt_tokens if usage else "",
+            usage.completion_tokens if usage else "")
+
+
 class MockClient:
     """Simulates a model response so the full pipeline can be tested offline."""
 
@@ -387,8 +411,9 @@ def main():
                     help="run only these entity IDs, e.g. E001 E002")
     ap.add_argument("--ratios", nargs="*", default=None,
                     help="subset of ratios, e.g. 3:1 2:2 (default: all)")
-    ap.add_argument("--models", nargs="*", choices=["gemini", "openai", "anthropic"],
-                    default=["gemini", "openai"])
+    ap.add_argument("--models", nargs="*",
+                    choices=["gemini", "openai", "anthropic", "deepseek"],
+                    default=["gemini", "openai", "deepseek"])
     ap.add_argument("--gemini-model", default=DEFAULT_GEMINI_MODEL)
     ap.add_argument("--azure-deployment", default=None,
                     help="Azure OpenAI deployment name "
@@ -398,6 +423,9 @@ def main():
                          "(default: AZURE_OPENAI_API_VERSION env or 2024-12-01-preview)")
     ap.add_argument("--openai-model", default=DEFAULT_OPENAI_MODEL)
     ap.add_argument("--anthropic-model", default=DEFAULT_ANTHROPIC_MODEL)
+    ap.add_argument("--openrouter-model", default=None,
+                    help="OpenRouter model id for the deepseek provider "
+                         "(default: OPENROUTER_MODEL env or deepseek/deepseek-v4-flash)")
     ap.add_argument("--trials", type=int, default=1,
                     help="number of repetitions per condition (default: 1)")
     ap.add_argument("--strategy", choices=["standard", "cot"], default="standard",
@@ -424,6 +452,9 @@ def main():
     azure_api_version = (args.azure_api_version
                          or os.environ.get("AZURE_OPENAI_API_VERSION")
                          or DEFAULT_AZURE_API_VERSION)
+    openrouter_model = (args.openrouter_model
+                        or os.environ.get("OPENROUTER_MODEL")
+                        or DEFAULT_OPENROUTER_MODEL)
 
     # --- set up clients -----------------------------------------------------
     callers = {}
@@ -436,17 +467,21 @@ def main():
                 model_id = (azure_deployment or args.openai_model) + "-MOCK"
             elif provider == "anthropic":
                 model_id = args.anthropic_model + "-MOCK"
+            elif provider == "deepseek":
+                model_id = openrouter_model + "-MOCK"
             callers[provider] = (model_id, lambda p, e, m=mock, s=args.strategy: m.call(p, e, s))
     else:
         missing = []
         if "gemini" in args.models and not os.environ.get("GEMINI_API_KEY"):
             missing.append("GEMINI_API_KEY")
-        if "openai" in args.models and not os.environ.get("OPENROUTER_API_KEY"):
+        if "openai" in args.models:
             for var in ("AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_API_KEY"):
                 if not os.environ.get(var):
                     missing.append(var)
         if "anthropic" in args.models and not os.environ.get("ANTHROPIC_API_KEY"):
             missing.append("ANTHROPIC_API_KEY")
+        if "deepseek" in args.models and not os.environ.get("OPENROUTER_API_KEY"):
+            missing.append("OPENROUTER_API_KEY")
         if missing:
             sys.exit(f"Missing environment variable(s): {', '.join(missing)}. "
                      f"Export them (or add to a .env file) or use --mock.")
@@ -466,31 +501,34 @@ def main():
                 args.gemini_model,
                 lambda p, e, c=gm, m=args.gemini_model, s=args.strategy: call_gemini(c, m, p, s))
         if "openai" in args.models:
-            if os.environ.get("OPENROUTER_API_KEY"):
-                from openai import OpenAI
-                az = OpenAI(
-                    base_url="https://openrouter.ai/api/v1",
-                    api_key=os.environ["OPENROUTER_API_KEY"],
-                )
-                model_name = os.environ.get("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash")
-            else:
-                from openai import AzureOpenAI
-                az = AzureOpenAI(
-                    azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-                    api_key=os.environ["AZURE_OPENAI_API_KEY"],
-                    api_version=azure_api_version,
-                    max_retries=MAX_RETRIES,
-                )
-                model_name = azure_deployment
+            from openai import AzureOpenAI
+            az = AzureOpenAI(
+                azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+                api_key=os.environ["AZURE_OPENAI_API_KEY"],
+                api_version=azure_api_version,
+                max_retries=MAX_RETRIES,
+            )
             callers["openai"] = (
-                model_name,
-                lambda p, e, c=az, m=model_name, s=args.strategy: call_openai(c, m, p, s))
+                azure_deployment,
+                lambda p, e, c=az, m=azure_deployment, s=args.strategy: call_openai(c, m, p, s))
         if "anthropic" in args.models:
             import anthropic
             an = anthropic.Anthropic(max_retries=MAX_RETRIES)
             callers["anthropic"] = (
                 args.anthropic_model,
                 lambda p, e, c=an, m=args.anthropic_model, s=args.strategy: call_anthropic(c, m, p, s))
+        if "deepseek" in args.models:
+            # OpenRouter gateway (OpenAI-compatible) -> DeepSeek. Separate from the
+            # Azure "openai" slot so all three run together in one pass.
+            from openai import OpenAI
+            dr = OpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=os.environ["OPENROUTER_API_KEY"],
+                max_retries=MAX_RETRIES,
+            )
+            callers["deepseek"] = (
+                openrouter_model,
+                lambda p, e, c=dr, m=openrouter_model, s=args.strategy: call_openrouter(c, m, p, s))
 
     # --- run ------------------------------------------------------------------
     run_id = uuid.uuid4().hex[:8]

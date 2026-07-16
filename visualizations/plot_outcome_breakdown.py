@@ -26,6 +26,7 @@ def main():
                              figsize=(5.5 * max(len(providers), 1), 4.5),
                              sharey=True, squeeze=False)
 
+    drawn_cats = set()  # every category drawn in ANY panel (for a complete legend)
     for ax, provider in zip(axes[0], providers):
         group = df[df["model_provider"] == provider]
         bottoms = [0.0] * len(RATIO_ORDER)
@@ -37,6 +38,7 @@ def main():
                 shares.append(share)
             if not any(shares):
                 continue
+            drawn_cats.add(cat)
             ax.bar(range(len(RATIO_ORDER)), shares, bottom=bottoms, width=0.6,
                    color=CATEGORY_COLORS[cat], label=cat,
                    edgecolor=SURFACE, linewidth=2)
@@ -60,8 +62,13 @@ def main():
                      fontsize=11)
 
     axes[0][0].set_ylabel("Share of responses")
-    handles, labels = axes[0][0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="upper center", ncol=len(labels),
+    # Build the legend from every category drawn across ALL panels, in a fixed
+    # order -- not from one subplot's handles, which would omit categories that
+    # only appear in other panels (e.g. FLAG/COM absent from the first model).
+    from matplotlib.patches import Patch
+    legend_cats = [c for c in CATEGORY_ORDER if c in drawn_cats]
+    handles = [Patch(facecolor=CATEGORY_COLORS[c], label=c) for c in legend_cats]
+    fig.legend(handles, legend_cats, loc="upper center", ncol=len(legend_cats),
                bbox_to_anchor=(0.5, -0.04), fontsize=9)
     fig.suptitle("Response categories by evidence ratio", fontsize=12)
 
