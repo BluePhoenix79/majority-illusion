@@ -363,3 +363,42 @@ Status: Harness is clean and ready for a live fire test of the new 3-model setup
 from the previous entry still stands: the reasoning params (Gemini thinking_level, OpenRouter
 reasoning field) have only been verified to CONSTRUCT client-side, not yet accepted by the
 live APIs -- do a small fire test before the first full run.
+
+## [Jul 16, 1:14 PM] — Kartigan
+
+Committed: Harness cleanup (anthropic slot removed, OpenRouter slot renamed, old data
+deleted). FULL RUNS NOT DONE -- blocked on Gemini quota, see below.
+
+DONE + VERIFIED (offline: compiles, --help parses, mock run clean):
+ - Removed the direct-Anthropic slot entirely: call_anthropic(), the "anthropic" --models
+   choice, --anthropic-model, DEFAULT_ANTHROPIC_MODEL, ANTHROPIC_MAX_TOKENS, its env/client
+   setup, and the direct claude-haiku-4-5 PRICING row. (Claude is still testable via the
+   OpenRouter slot -- OPENROUTER_MODEL=anthropic/claude-haiku-4.5.)
+ - Renamed the OpenRouter slot "deepseek" -> "openrouter" everywhere: --models choices +
+   default (now ["gemini","openrouter"]), mock/missing-var/client-setup branches, and
+   common.py MODEL_COLORS (now keyed "openrouter", aqua). model_id still carries the actual
+   model so analysis is unchanged. Added a MODEL_LABEL_PREFIXES entry for the OpenRouter
+   Claude slug (anthropic/claude-haiku-4.5 -> "Claude Haiku 4.5").
+ - Deleted all 5 old result CSVs (every one contained gpt-5-mini, i.e. pre-cleanup data):
+   run_full_standard, run_full_cot, live_smoke, multitrial_smoke, mock_run_full. results/
+   is now empty, awaiting fresh gemini+openrouter runs.
+
+FIRE TEST (live, 4 calls):
+ - OpenRouter / DeepSeek: PASS. reasoning:{"effort":"high"} accepted server-side, clean
+   answer + confidence + tokens. DeepSeek reasoning control CONFIRMED working end-to-end.
+ - Gemini: BLOCKED. 429 RESOURCE_EXHAUSTED ("Resource has been exhausted (e.g. check
+   quota)"), no retryDelay -> a HARD Vertex AI Express Mode quota exhaustion, not a
+   transient per-minute cap (my backoff retried 4x and still failed). Vertex Express is a
+   limited free-tier quota and it's used up. This is the same class of external blocker as
+   the earlier Gemini key issues -- NOT a code bug, and NOT a rejection of thinking_level
+   (that would be a 400; we got a 429 after validation passed).
+
+CONSEQUENCE: did NOT run the full tests. Running them now would fail every Gemini call
+(~50% of each run) and waste DeepSeek calls on half-broken data. Full runs are blocked
+until Gemini can make calls again -- options: wait for the Express quota to reset, attach
+billing / a full Cloud project to lift the Express cap, or drop in a different Gemini key.
+Files: harness/run_experiment.py, visualizations/common.py, results/ (5 CSVs removed),
+UPDATES.md
+Status: Code + data cleanup COMPLETE and committed. Full-run data collection PENDING on
+Gemini quota. Reasoning params: DeepSeek confirmed live; Gemini's thinking_level passed
+validation but hasn't returned a successful response yet (blocked by quota, not rejected).

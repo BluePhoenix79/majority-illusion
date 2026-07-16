@@ -5,20 +5,17 @@ conflicting documents, queries both models, elicits a stated confidence,
 and appends one row per (entity, ratio, trial, model) to a CSV with full metadata.
 
 Providers (one CSV row per model, per condition):
-  - gemini   : gemini-3.5-flash, via the native google-genai SDK.
-               Key from GEMINI_API_KEY; override --gemini-model.
-  - deepseek : the OpenRouter slot. Runs whatever OPENROUTER_MODEL points at --
-               deepseek/deepseek-v4-flash by default, or anthropic/claude-haiku-4.5
-               to test Claude. BOTH go through the same OPENROUTER_API_KEY; swap
-               the model string, nothing else. (The slot is named "deepseek" for
-               historical reasons; it serves any OpenRouter model.)
-  - anthropic: OPTIONAL, opt-in only. Claude via a *direct* Anthropic API key.
-               Not part of the current study -- Claude is tested through the
-               OpenRouter slot above, no separate key needed. Kept as an escape
-               hatch; runs only with an explicit --models anthropic.
+  - gemini    : gemini-3.5-flash, via the native google-genai SDK.
+                Key from GEMINI_API_KEY; override --gemini-model.
+  - openrouter: the OpenRouter gateway. Runs whatever OPENROUTER_MODEL points at --
+                deepseek/deepseek-v4-flash by default, or anthropic/claude-haiku-4.5
+                to test Claude. Both go through the same OPENROUTER_API_KEY; swap
+                the model string, nothing else. The CSV's model_provider column is
+                "openrouter" and model_id carries the actual model, so analysis
+                keyed on model_id distinguishes them.
 
-The study models (gemini + the OpenRouter slot) run by default. gemini-3.5-flash
-is Google's current frontier Flash model (GA 2026-05-19).
+Both providers run by default. gemini-3.5-flash is Google's current frontier
+Flash model (GA 2026-05-19).
 
 NOTE: gemini-3.5-flash reasons before answering; its thinking tokens count
 against the output budget, so a tight cap truncates the JSON mid-object. Both
@@ -45,7 +42,6 @@ Config is read from the environment:
   OPENROUTER_API_KEY         one key for the OpenRouter slot (DeepSeek or Claude)
   OPENROUTER_MODEL           which OpenRouter model to run (default:
                               deepseek/deepseek-v4-flash; also --openrouter-model)
-  ANTHROPIC_API_KEY          only if you opt into the direct --models anthropic slot
 A .env file in the repo root is auto-loaded if present (.env is gitignored, so
 secrets are never committed).
 
@@ -75,14 +71,12 @@ RESULTS_DIR = REPO_ROOT / "results"
 
 DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"  # current frontier Flash (GA 2026-05-19)
 DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-v4-flash"  # DeepSeek via OpenRouter
-DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5"  # only for the opt-in direct slot
 
 # Models "think" before answering, and those reasoning/thinking tokens count
 # against the output budget -- a tight cap gets consumed by reasoning and
 # truncates the JSON mid-object. Give generous headroom well above the ~30
 # tokens the visible JSON answer needs.
 GEMINI_MAX_OUTPUT_TOKENS = 2048
-ANTHROPIC_MAX_TOKENS = 2048
 OPENROUTER_MAX_TOKENS = 2048
 MAX_RETRIES = 4  # exponential-backoff attempts on 429/5xx/connection errors
 
@@ -112,16 +106,13 @@ OPENROUTER_DEFAULT_EFFORT = "high"         # DeepSeek and any non-Anthropic mode
 #                         file does not guess prices. DeepSeek rows get exact token
 #                         counts but no cost (shown as n/a). Add a verified rate
 #                         here if you want its cost.
-#   gemini-3.1-flash-lite NOT VERIFIED (only used for a few early pilot calls).
 #
 # A model_id absent from this table still gets exact token counts, just no cost.
 PRICING = {
     "gemini-3.5-flash":           (1.50, 9.00),   # verified
-    "gemini-3.1-flash-lite":      (0.10, 0.40),   # unverified estimate
     "anthropic/claude-haiku-4.5": (1.00, 5.00),   # verified (OpenRouter slug)
-    "claude-haiku-4-5":           (1.00, 5.00),   # verified (direct-API id)
 }
-UNVERIFIED_PRICES = {"gemini-3.1-flash-lite"}
+UNVERIFIED_PRICES = set()  # every rate above is verified; deepseek is left unpriced
 
 
 def price_for(model_id):
@@ -331,18 +322,6 @@ def call_gemini(client, model_id, prompt, strategy="standard"):
     return text, ptok, ctok
 
 
-def call_anthropic(client, model_id, prompt, strategy="standard"):
-    sys_prompt = SYSTEM_PROMPT_COT if strategy == "cot" else SYSTEM_PROMPT
-    resp = client.messages.create(
-        model=model_id,
-        max_tokens=ANTHROPIC_MAX_TOKENS,
-        system=sys_prompt,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    text = "".join(b.text for b in resp.content if b.type == "text")
-    return text, resp.usage.input_tokens, resp.usage.output_tokens
-
-
 def openrouter_reasoning_param(model_id):
     """Build OpenRouter's unified `reasoning` field for the configured model.
 
@@ -423,17 +402,14 @@ def main():
     ap.add_argument("--ratios", nargs="*", default=None,
                     help="subset of ratios, e.g. 3:1 2:2 (default: all)")
     ap.add_argument("--models", nargs="*",
-                    choices=["gemini", "deepseek", "anthropic"],
-                    default=["gemini", "deepseek"],
-                    help="providers to run (default: gemini + the OpenRouter "
-                         "slot; 'anthropic' is the opt-in direct-API escape hatch)")
+                    choices=["gemini", "openrouter"],
+                    default=["gemini", "openrouter"],
+                    help="providers to run (default: both)")
     ap.add_argument("--gemini-model", default=DEFAULT_GEMINI_MODEL)
     ap.add_argument("--openrouter-model", default=None,
-                    help="OpenRouter model id for the deepseek slot "
+                    help="model id for the openrouter slot "
                          "(default: OPENROUTER_MODEL env or deepseek/deepseek-v4-flash; "
                          "set to anthropic/claude-haiku-4.5 to test Claude)")
-    ap.add_argument("--anthropic-model", default=DEFAULT_ANTHROPIC_MODEL,
-                    help="model id for the opt-in direct Anthropic slot")
     ap.add_argument("--trials", type=int, default=1,
                     help="number of repetitions per condition (default: 1)")
     ap.add_argument("--strategy", choices=["standard", "cot"], default="standard",
@@ -453,7 +429,7 @@ def main():
     ratios = args.ratios or list(dataset["ratios"])
     run_seed = dataset.get("seed", 20260714)
 
-    # Which OpenRouter model the deepseek slot runs: CLI flag > env var > default.
+    # Which model the openrouter slot runs: CLI flag > env var > default.
     openrouter_model = (args.openrouter_model
                         or os.environ.get("OPENROUTER_MODEL")
                         or DEFAULT_OPENROUTER_MODEL)
@@ -465,19 +441,15 @@ def main():
             mock = MockClient(provider)
             if provider == "gemini":
                 model_id = args.gemini_model + "-MOCK"
-            elif provider == "deepseek":
+            elif provider == "openrouter":
                 model_id = openrouter_model + "-MOCK"
-            elif provider == "anthropic":
-                model_id = args.anthropic_model + "-MOCK"
             callers[provider] = (model_id, lambda p, e, m=mock, s=args.strategy: m.call(p, e, s))
     else:
         missing = []
         if "gemini" in args.models and not os.environ.get("GEMINI_API_KEY"):
             missing.append("GEMINI_API_KEY")
-        if "deepseek" in args.models and not os.environ.get("OPENROUTER_API_KEY"):
+        if "openrouter" in args.models and not os.environ.get("OPENROUTER_API_KEY"):
             missing.append("OPENROUTER_API_KEY")
-        if "anthropic" in args.models and not os.environ.get("ANTHROPIC_API_KEY"):
-            missing.append("ANTHROPIC_API_KEY")
         if missing:
             sys.exit(f"Missing environment variable(s): {', '.join(missing)}. "
                      f"Export them (or add to a .env file) or use --mock.")
@@ -496,27 +468,19 @@ def main():
             callers["gemini"] = (
                 args.gemini_model,
                 lambda p, e, c=gm, m=args.gemini_model, s=args.strategy: call_gemini(c, m, p, s))
-        if "deepseek" in args.models:
+        if "openrouter" in args.models:
             # OpenRouter gateway (OpenAI-compatible). Runs whatever OPENROUTER_MODEL
             # points at -- DeepSeek by default, or anthropic/claude-haiku-4.5 to
             # test Claude through the same key.
             from openai import OpenAI
-            dr = OpenAI(
+            orc = OpenAI(
                 base_url="https://openrouter.ai/api/v1",
                 api_key=os.environ["OPENROUTER_API_KEY"],
                 max_retries=MAX_RETRIES,
             )
-            callers["deepseek"] = (
+            callers["openrouter"] = (
                 openrouter_model,
-                lambda p, e, c=dr, m=openrouter_model, s=args.strategy: call_openrouter(c, m, p, s))
-        if "anthropic" in args.models:
-            # Opt-in only: Claude via a DIRECT Anthropic key, separate from the
-            # OpenRouter slot above. Not part of the default study.
-            import anthropic
-            an = anthropic.Anthropic(max_retries=MAX_RETRIES)
-            callers["anthropic"] = (
-                args.anthropic_model,
-                lambda p, e, c=an, m=args.anthropic_model, s=args.strategy: call_anthropic(c, m, p, s))
+                lambda p, e, c=orc, m=openrouter_model, s=args.strategy: call_openrouter(c, m, p, s))
 
     # --- run ------------------------------------------------------------------
     run_id = uuid.uuid4().hex[:8]

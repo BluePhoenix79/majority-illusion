@@ -49,7 +49,8 @@ MODEL_LABEL_PREFIXES = [
     ("gemini-3.1-flash-lite", "Gemini 3.1 Flash-Lite"),
     ("gpt-5-mini", "GPT-5 mini (Azure)"),
     ("gpt-4o-mini", "GPT-4o mini (Azure)"),
-    ("claude-haiku-4-5", "Claude Haiku 4.5"),
+    ("anthropic/claude-haiku-4.5", "Claude Haiku 4.5"),  # OpenRouter slug
+    ("claude-haiku-4-5", "Claude Haiku 4.5"),             # direct-API id
     ("deepseek/deepseek-v4-flash", "DeepSeek V4 Flash"),
     ("deepseek", "DeepSeek"),  # fallback for other deepseek ids
 ]
@@ -69,10 +70,11 @@ INK_2 = "#52514e"
 MUTED = "#898781"
 GRID = "#e1e0d9"
 BASELINE = "#c3c2b7"
-# blue / orange / violet. Plot scripts fall back to MUTED (gray) for an unknown
-# provider, so a new model renders but is easy to miss -- add it here.
-MODEL_COLORS = {"gemini": "#2a78d6", "openai": "#eb6834",
-                "anthropic": "#4a3aa7", "deepseek": "#1baf7a"}  # blue/orange/violet/aqua
+# Keyed by the model_provider column. Current study has two providers: gemini
+# (native) and openrouter (the gateway, which serves DeepSeek or Claude -- the
+# specific model is in model_id/model_label, not the provider). Plot scripts
+# fall back to MUTED (gray) for an unknown provider.
+MODEL_COLORS = {"gemini": "#2a78d6", "openrouter": "#1baf7a"}  # blue / aqua
 CATEGORY_COLORS = {
     "MAJ": "#2a78d6",       # blue
     "MIN": "#eb6834",       # orange
