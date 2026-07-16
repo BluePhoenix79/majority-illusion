@@ -372,7 +372,7 @@ def main():
         missing = []
         if "gemini" in args.models and not os.environ.get("GEMINI_API_KEY"):
             missing.append("GEMINI_API_KEY")
-        if "openai" in args.models:
+        if "openai" in args.models and not os.environ.get("OPENROUTER_API_KEY"):
             for var in ("AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_API_KEY"):
                 if not os.environ.get(var):
                     missing.append(var)
@@ -397,16 +397,25 @@ def main():
                 args.gemini_model,
                 lambda p, e, c=gm, m=args.gemini_model, s=args.strategy: call_gemini(c, m, p, s))
         if "openai" in args.models:
-            from openai import AzureOpenAI
-            az = AzureOpenAI(
-                azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-                api_key=os.environ["AZURE_OPENAI_API_KEY"],
-                api_version=azure_api_version,
-                max_retries=MAX_RETRIES,
-            )
+            if os.environ.get("OPENROUTER_API_KEY"):
+                from openai import OpenAI
+                az = OpenAI(
+                    base_url="https://openrouter.ai/api/v1",
+                    api_key=os.environ["OPENROUTER_API_KEY"],
+                )
+                model_name = os.environ.get("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash")
+            else:
+                from openai import AzureOpenAI
+                az = AzureOpenAI(
+                    azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+                    api_key=os.environ["AZURE_OPENAI_API_KEY"],
+                    api_version=azure_api_version,
+                    max_retries=MAX_RETRIES,
+                )
+                model_name = azure_deployment
             callers["openai"] = (
-                azure_deployment,
-                lambda p, e, c=az, m=azure_deployment, s=args.strategy: call_openai(c, m, p, s))
+                model_name,
+                lambda p, e, c=az, m=model_name, s=args.strategy: call_openai(c, m, p, s))
         if "anthropic" in args.models:
             import anthropic
             an = anthropic.Anthropic(max_retries=MAX_RETRIES)
