@@ -5,21 +5,21 @@ conflicting documents, queries both models, elicits a stated confidence,
 and appends one row per (entity, ratio, model) to a CSV with full metadata.
 
 Models:
-  - Gemini: gemini-3.1-flash-lite  (key from GEMINI_API_KEY; override --gemini-model)
+  - Gemini: gemini-3.5-flash       (key from GEMINI_API_KEY; override --gemini-model)
   - OpenAI: via Azure OpenAI Service (deployment from AZURE_OPENAI_DEPLOYMENT
             or --azure-deployment)
 
 Both run on paid, pay-as-you-go tiers. Model B is served through Azure OpenAI
 Service (Azure for Students credits) rather than the direct OpenAI API.
 
-NOTE 1: gemini-3.5-flash (the frontier Flash tier) is capped at 20 requests/day
-on this project's free quota -- unusable for a 200-call run (50 entities x 4
-ratios x 1 model). gemini-3.1-flash-lite gets 500 req/day and 15 req/min on the
-same free tier, which comfortably covers the full run. Confirmed against the
-live models.list() response for this API key -- there is no plain
-"gemini-3.1-flash" on this account, only the -lite variant (GA) plus preview/
-image/tts variants. Document the quota-driven downgrade from 3.5 Flash to
-3.1 Flash-Lite in the Research Brief.
+NOTE 1: gemini-3.5-flash is Google's current frontier Flash model (GA 2026-05-19).
+An earlier free-tier key capped it at 20 requests/day, which forced a temporary
+downgrade to gemini-3.1-flash-lite (500/day); that key has since been replaced
+with one that has unrestricted 3.5 Flash access, so we are back on the frontier
+Flash tier and the Flash-Lite downgrade no longer applies. Both 3.5 Flash and
+gpt-5-mini are current-generation models, so the Research Brief can describe the
+pair as such -- but see the thinking-token note below: 3.5 Flash reasons before
+answering and needs output headroom.
 
 NOTE 2: On Azure OpenAI, the `model` argument to the API is the *deployment name*
 you created in the Azure AI Foundry portal, NOT the base model name. Record the
@@ -63,7 +63,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_PATH = REPO_ROOT / "data" / "entities.json"
 RESULTS_DIR = REPO_ROOT / "results"
 
-DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite"  # 500 req/day, 15/min on free tier
+DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"  # current frontier Flash (GA 2026-05-19)
 DEFAULT_AZURE_DEPLOYMENT = "gpt-5-mini"     # Azure OpenAI deployment name
 DEFAULT_AZURE_API_VERSION = "2024-12-01-preview"  # supports GPT-5 reasoning models
 # Both models "think" before answering (Gemini thinking tokens; GPT-5
