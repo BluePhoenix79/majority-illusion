@@ -90,3 +90,32 @@ Runtime is bound by Gemini's 15 req/min: ~15+ min for the full run.
 Files: harness/run_experiment.py, results/pilot_gemini_gpt5mini.csv, UPDATES.md
 Status: Harness VERIFIED and ready to scale to the full 50-entity run
 (`python harness/run_experiment.py`). Next: full run, then analysis + Research Brief.
+
+## [Jul 15, 6:30 PM] — Pranav
+Committed: Merged remote updates (Gemini/Azure OpenAI integration, reasoning tokens, rate limit retry) with local modifications. Preserved both upstream model providers (Gemini 3.1 Flash-Lite + Azure GPT-5 Mini) and local Anthropic support, and merged local improvements including prompting strategy configuration (standard vs. CoT), multiple trial repetitions with deterministic doc shuffling, and banking-themed entity attributes (interest rate, monthly fee, lending cap, overdraft limit).
+Files: data/entities.json, data/generate_dataset.py, harness/run_experiment.py, results/pilot_mock.csv
+Status: Pipeline ready and fully merged. Next: run the full experiment with standard and/or CoT prompting strategies.
+
+## [Jul 15, 7:40 PM] — Pranav
+Committed: Documented the core hypotheses, variables, experimental design, and pipeline details in research_brief.md.
+Files: research_brief.md, UPDATES.md
+Status: Design and hypotheses fully documented. Ready to execute the full 50-entity run next.
+
+## [Jul 15, 10:40 PM] — Kartigan
+Committed: Model A switched BACK to gemini-3.5-flash (frontier Flash tier) now that a key
+with unrestricted 3.5 Flash access is available. This reverses the quota-driven downgrade
+to gemini-3.1-flash-lite from the previous entry — that entry's "Flash-Lite is NOT a
+frontier model, don't call it one" caveat NO LONGER APPLIES. Both models (gemini-3.5-flash
++ gpt-5-mini) are current-generation, so the Research Brief / AI Use Transparency Statement
+can describe the pair accordingly. (Not editing the earlier entry, per the append-only
+rule — noting the reversal here instead.)
+HEADS-UP — NOT YET RUNNABLE: the 2-call fire test currently FAILS on the Gemini side with
+403 PERMISSION_DENIED, reason API_KEY_SERVICE_BLOCKED. This is a KEY-CONFIG issue, not a
+code issue: the key in the local .env is blocked from generativelanguage.googleapis.com
+entirely (even ListModels fails), so no model string would work with it. Fix in Google
+Cloud Console: enable the Generative Language API on the project and/or clear the key's
+API restrictions. The gemini-3.5-flash model string itself was confirmed working earlier
+with a previous key. The gpt-5-mini/Azure side is green (fire test clean).
+Files: harness/run_experiment.py, UPDATES.md
+Status: Code ready for the full 50-entity run, PENDING the Gemini key fix. Re-run the fire
+test first: `python harness/run_experiment.py --entities 1 --ratios 3:1`.

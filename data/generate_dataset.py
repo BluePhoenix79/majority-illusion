@@ -20,8 +20,8 @@ import random
 from pathlib import Path
 
 SEED = 20260714
-N_BANKING = 18
-N_GENERAL = 32
+N_BANKING = 20
+N_GENERAL = 30
 
 RATIOS = {
     "4:0": (4, 0),
@@ -87,7 +87,7 @@ def employees_pair(rng):
     b = int(a * rng.choice([0.4, 0.55, 1.8, 2.5]))
     return str(a), str(b)
 
-ATTRIBUTES = [
+GENERAL_ATTRIBUTES = [
     ("founding_year",
      "In what year was {name} founded?",
      "{name} was founded in {value}.",
@@ -104,6 +104,55 @@ ATTRIBUTES = [
      "Approximately how many employees does {name} have?",
      "{name} employs approximately {value} people.",
      employees_pair),
+]
+
+ACCOUNT_TYPES = [
+    "FlexPrime Savings", "GoldShield Checking", "SecureYield Money Market",
+    "ApexGrowth Savings", "EcoSaver Checking"
+]
+
+ACT_NAMES = [
+    "Orcana Reserve Act", "Veltra Lending Policy", "Corvane Compliance Directive",
+    "Ashfell Charter", "Tessamir Capital Accord"
+]
+
+def interest_rate_pair(rng):
+    a = rng.choice([1.5, 2.25, 3.5, 4.25, 5.75, 6.5])
+    b = rng.choice([x for x in [1.5, 2.25, 3.5, 4.25, 5.75, 6.5] if x != a])
+    return f"{a}%", f"{b}%"
+
+def monthly_fee_pair(rng):
+    a = rng.choice([5, 12, 15, 25, 35])
+    b = rng.choice([x for x in [5, 12, 15, 25, 35] if x != a])
+    return f"${a}", f"${b}"
+
+def lending_cap_pair(rng):
+    a = rng.choice([10, 15, 20, 25, 30])
+    b = rng.choice([x for x in [10, 15, 20, 25, 30] if x != a])
+    return f"{a}%", f"{b}%"
+
+def overdraft_pair(rng):
+    a = rng.choice([100, 250, 500, 1000])
+    b = rng.choice([x for x in [100, 250, 500, 1000] if x != a])
+    return f"${a}", f"${b}"
+
+BANKING_ATTRIBUTES = [
+    ("interest_rate",
+     "What is the annual interest rate for the {account} account at {name}?",
+     "The annual interest rate for the {account} account at {name} is {value}.",
+     interest_rate_pair),
+    ("monthly_fee",
+     "What is the monthly maintenance fee for the {account} account at {name}?",
+     "The monthly maintenance fee for the {account} account at {name} is {value}.",
+     monthly_fee_pair),
+    ("lending_cap",
+     "What is the maximum lending cap specified by the {act} at {name}?",
+     "The {act} at {name} caps institutional lending at {value}.",
+     lending_cap_pair),
+    ("overdraft_limit",
+     "What is the default overdraft protection limit for the {account} account at {name}?",
+     "The default overdraft protection limit for the {account} account at {name} is {value}.",
+     overdraft_pair),
 ]
 
 
@@ -157,17 +206,27 @@ def main():
         specs.append((name, "general", "mid-size company"))
 
     for idx, (name, domain, domain_desc) in enumerate(specs, start=1):
-        attribute, q_tmpl, claim_tmpl, value_gen = ATTRIBUTES[idx % len(ATTRIBUTES)]
+        if domain == "banking":
+            attribute, q_tmpl, claim_tmpl, value_gen = BANKING_ATTRIBUTES[idx % len(BANKING_ATTRIBUTES)]
+            account = rng.choice(ACCOUNT_TYPES)
+            act = rng.choice(ACT_NAMES)
+            q_formatted = q_tmpl.format(name=name, account=account, act=act)
+            claim_tmpl_formatted = claim_tmpl.format(name="{name}", value="{value}", account=account, act=act)
+        else:
+            attribute, q_tmpl, claim_tmpl, value_gen = GENERAL_ATTRIBUTES[idx % len(GENERAL_ATTRIBUTES)]
+            q_formatted = q_tmpl.format(name=name)
+            claim_tmpl_formatted = claim_tmpl
+
         maj_value, min_value = value_gen(rng)
         entities.append({
             "entity_id": f"E{idx:03d}",
             "entity_name": name,
             "domain": domain,
             "attribute": attribute,
-            "question": q_tmpl.format(name=name),
+            "question": q_formatted,
             "majority_value": maj_value,
             "minority_value": min_value,
-            "documents": make_documents(rng, name, domain_desc, claim_tmpl,
+            "documents": make_documents(rng, name, domain_desc, claim_tmpl_formatted,
                                         maj_value, min_value),
         })
 

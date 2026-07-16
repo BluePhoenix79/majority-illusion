@@ -2,24 +2,24 @@
 
 For each entity x ratio combination, builds a prompt containing the
 conflicting documents, queries both models, elicits a stated confidence,
-and appends one row per (entity, ratio, model) to a CSV with full metadata.
+and appends one row per (entity, ratio, trial, model) to a CSV with full metadata.
 
 Models:
-  - Gemini: gemini-3.1-flash-lite  (key from GEMINI_API_KEY; override --gemini-model)
+  - Gemini: gemini-3.5-flash       (key from GEMINI_API_KEY; override --gemini-model)
   - OpenAI: via Azure OpenAI Service (deployment from AZURE_OPENAI_DEPLOYMENT
             or --azure-deployment)
 
 Both run on paid, pay-as-you-go tiers. Model B is served through Azure OpenAI
 Service (Azure for Students credits) rather than the direct OpenAI API.
 
-NOTE 1: gemini-3.5-flash (the frontier Flash tier) is capped at 20 requests/day
-on this project's free quota -- unusable for a 200-call run (50 entities x 4
-ratios x 1 model). gemini-3.1-flash-lite gets 500 req/day and 15 req/min on the
-same free tier, which comfortably covers the full run. Confirmed against the
-live models.list() response for this API key -- there is no plain
-"gemini-3.1-flash" on this account, only the -lite variant (GA) plus preview/
-image/tts variants. Document the quota-driven downgrade from 3.5 Flash to
-3.1 Flash-Lite in the Research Brief.
+NOTE 1: gemini-3.5-flash is Google's current frontier Flash model (GA 2026-05-19).
+An earlier free-tier key capped it at 20 requests/day, which forced a temporary
+downgrade to gemini-3.1-flash-lite (500/day); that key has since been replaced
+with one that has unrestricted 3.5 Flash access, so we are back on the frontier
+Flash tier and the Flash-Lite downgrade no longer applies. Both 3.5 Flash and
+gpt-5-mini are current-generation models, so the Research Brief can describe the
+pair as such -- but see the thinking-token note below: 3.5 Flash reasons before
+answering and needs output headroom.
 
 NOTE 2: On Azure OpenAI, the `model` argument to the API is the *deployment name*
 you created in the Azure AI Foundry portal, NOT the base model name. Record the
@@ -56,6 +56,7 @@ import re
 import sys
 import time
 import uuid
+import random as py_random
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -63,9 +64,12 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_PATH = REPO_ROOT / "data" / "entities.json"
 RESULTS_DIR = REPO_ROOT / "results"
 
-DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite"  # 500 req/day, 15/min on free tier
+DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"  # current frontier Flash (GA 2026-05-19)
 DEFAULT_AZURE_DEPLOYMENT = "gpt-5-mini"     # Azure OpenAI deployment name
 DEFAULT_AZURE_API_VERSION = "2024-12-01-preview"  # supports GPT-5 reasoning models
+DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
+DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5"  # 3.5 Haiku retired 2026-02-19
+
 # Both models "think" before answering (Gemini thinking tokens; GPT-5
 # reasoning tokens). Those count against the output budget, so give both
 # generous headroom well above the ~30 tokens the visible JSON needs — a tight
@@ -73,11 +77,17 @@ DEFAULT_AZURE_API_VERSION = "2024-12-01-preview"  # supports GPT-5 reasoning mod
 # requires max_completion_tokens (not max_tokens) and only the default temperature.
 GEMINI_MAX_OUTPUT_TOKENS = 2048
 OPENAI_MAX_COMPLETION_TOKENS = 2000
+ANTHROPIC_MAX_TOKENS = 2048
 MAX_RETRIES = 4  # exponential-backoff attempts on 429/5xx/connection errors
 
 SYSTEM_PROMPT = (
-    "You are a careful research assistant. Answer the user's question using "
-    "the provided documents as your evidence."
+    "You are an information assistant. Based only on the provided documents, "
+    "answer the user's question."
+)
+
+SYSTEM_PROMPT_COT = (
+    "You are an information assistant. Based only on the provided documents, "
+    "analyze the evidence step-by-step and think out loud before answering the user's question."
 )
 
 PROMPT_TEMPLATE = """Below are documents retrieved for a research question. Read them, then answer the question.
@@ -87,23 +97,48 @@ PROMPT_TEMPLATE = """Below are documents retrieved for a research question. Read
 Question: {question}
 
 Respond with ONLY a JSON object in exactly this format:
-{{"answer": "<your answer>", "confidence": <integer 0-100 representing how confident you are in this answer>}}"""
+{{"answer": "<your answer>", "confidence": <integer 1-5 representing how confident you are in this answer: 1 = very uncertain, 5 = completely certain>}}"""
+
+PROMPT_TEMPLATE_COT = """Below are documents retrieved for a research question. Read them, analyze the evidence step-by-step, then answer the question.
+
+{documents}
+
+Question: {question}
+
+Respond with your step-by-step reasoning trace, and conclude with ONLY a JSON object in exactly this format:
+{{"answer": "<your answer>", "confidence": <integer 1-5 representing how confident you are in this answer: 1 = very uncertain, 5 = completely certain>}}"""
 
 CSV_FIELDS = [
     "run_id", "timestamp_utc", "entity_id", "entity_name", "domain",
-    "attribute", "ratio", "n_docs", "model_provider", "model_id", "question",
-    "majority_value", "minority_value", "raw_response", "parsed_answer",
-    "parsed_confidence", "prompt_tokens", "completion_tokens", "error",
+    "attribute", "ratio", "n_docs", "trial_index", "strategy", "doc_positions",
+    "model_provider", "model_id", "question", "majority_value", "minority_value",
+    "raw_response", "parsed_answer", "parsed_confidence", "prompt_tokens",
+    "completion_tokens", "error",
 ]
 
 
-def build_prompt(entity, ratio):
-    docs = entity["documents"][ratio]
+def build_prompt(entity, ratio, strategy="standard", trial_idx=1, run_seed=20260714):
+    docs = list(entity["documents"][ratio])
+    
+    # Shuffle documents using a seed combining trial index, entity name, and ratio.
+    # Ensures different trials run with different document layouts to neutralize position bias.
+    shuffle_rng = py_random.Random(f"{run_seed}-{entity['entity_id']}-{ratio}-trial-{trial_idx}")
+    shuffle_rng.shuffle(docs)
+    
     doc_blocks = []
+    doc_positions = []
     for i, d in enumerate(docs, start=1):
         doc_blocks.append(f"Document {i} (source: {d['source']}):\n{d['text']}")
-    return PROMPT_TEMPLATE.format(documents="\n\n".join(doc_blocks),
-                                  question=entity["question"])
+        if entity["majority_value"] in d["text"]:
+            doc_positions.append("MAJ")
+        elif entity["minority_value"] in d["text"]:
+            doc_positions.append("MIN")
+        else:
+            doc_positions.append("UNK")
+            
+    template = PROMPT_TEMPLATE_COT if strategy == "cot" else PROMPT_TEMPLATE
+    prompt = template.format(documents="\n\n".join(doc_blocks), question=entity["question"])
+    return prompt, doc_positions
 
 
 def parse_response(raw):
@@ -169,14 +204,15 @@ def call_with_backoff(fn, max_retries=MAX_RETRIES, base_delay=1.0, max_delay=65.
     raise last
 
 
-def call_gemini(client, model_id, prompt):
+def call_gemini(client, model_id, prompt, strategy="standard"):
     from google.genai import types
+    sys_prompt = SYSTEM_PROMPT_COT if strategy == "cot" else SYSTEM_PROMPT
     def _do():
         return client.models.generate_content(
             model=model_id,
             contents=prompt,
             config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_PROMPT,
+                system_instruction=sys_prompt,
                 max_output_tokens=GEMINI_MAX_OUTPUT_TOKENS,
             ),
         )
@@ -188,16 +224,17 @@ def call_gemini(client, model_id, prompt):
     return text, ptok, ctok
 
 
-def call_openai(client, deployment, prompt):
+def call_openai(client, deployment, prompt, strategy="standard"):
     # On Azure OpenAI, `model` is the deployment name, not the base model name.
     # GPT-5 reasoning models require max_completion_tokens (not max_tokens) and
     # only accept the default temperature. The OpenAI SDK retries transient
     # errors (429/5xx/connection) internally via max_retries.
+    sys_prompt = SYSTEM_PROMPT_COT if strategy == "cot" else SYSTEM_PROMPT
     resp = client.chat.completions.create(
         model=deployment,
         max_completion_tokens=OPENAI_MAX_COMPLETION_TOKENS,
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": sys_prompt},
             {"role": "user", "content": prompt},
         ],
     )
@@ -207,19 +244,37 @@ def call_openai(client, deployment, prompt):
             usage.completion_tokens if usage else "")
 
 
+def call_anthropic(client, model_id, prompt, strategy="standard"):
+    sys_prompt = SYSTEM_PROMPT_COT if strategy == "cot" else SYSTEM_PROMPT
+    resp = client.messages.create(
+        model=model_id,
+        max_tokens=ANTHROPIC_MAX_TOKENS,
+        system=sys_prompt,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    text = "".join(b.text for b in resp.content if b.type == "text")
+    return text, resp.usage.input_tokens, resp.usage.output_tokens
 class MockClient:
-    """Simulates a model response so the full pipeline can be tested offline.
-
-    Estimates token counts as chars/4 so cost projections are still possible.
-    """
+    """Simulates a model response so the full pipeline can be tested offline."""
 
     def __init__(self, provider):
         self.provider = provider
 
-    def call(self, prompt, entity):
+    def call(self, prompt, entity, strategy="standard"):
         answer = entity["majority_value"]
-        raw = json.dumps({"answer": answer, "confidence": 85})
-        return raw, len(SYSTEM_PROMPT + prompt) // 4, len(raw) // 4
+        if strategy == "cot":
+            raw = (
+                "Thinking Process:\n"
+                f"1. The question asks about {entity['question']}.\n"
+                f"2. Multiple documents state the answer is {answer}.\n"
+                "3. Concluding with the JSON block.\n\n"
+                + json.dumps({"answer": answer, "confidence": 5})
+            )
+        else:
+            raw = json.dumps({"answer": answer, "confidence": 5})
+            
+        sys_prompt = SYSTEM_PROMPT_COT if strategy == "cot" else SYSTEM_PROMPT
+        return raw, len(sys_prompt + prompt) // 4, len(raw) // 4
 
 
 def main():
@@ -239,15 +294,21 @@ def main():
                     help="run only these entity IDs, e.g. E001 E002")
     ap.add_argument("--ratios", nargs="*", default=None,
                     help="subset of ratios, e.g. 3:1 2:2 (default: all)")
-    ap.add_argument("--models", nargs="*", choices=["gemini", "openai"],
+    ap.add_argument("--models", nargs="*", choices=["gemini", "openai", "anthropic"],
                     default=["gemini", "openai"])
     ap.add_argument("--gemini-model", default=DEFAULT_GEMINI_MODEL)
     ap.add_argument("--azure-deployment", default=None,
                     help="Azure OpenAI deployment name "
-                         "(default: AZURE_OPENAI_DEPLOYMENT env or gpt-4o-mini)")
+                         "(default: AZURE_OPENAI_DEPLOYMENT env or gpt-5-mini)")
     ap.add_argument("--azure-api-version", default=None,
                     help="Azure OpenAI API version "
-                         "(default: AZURE_OPENAI_API_VERSION env or 2024-10-21)")
+                         "(default: AZURE_OPENAI_API_VERSION env or 2024-12-01-preview)")
+    ap.add_argument("--openai-model", default=DEFAULT_OPENAI_MODEL)
+    ap.add_argument("--anthropic-model", default=DEFAULT_ANTHROPIC_MODEL)
+    ap.add_argument("--trials", type=int, default=1,
+                    help="number of repetitions per condition (default: 1)")
+    ap.add_argument("--strategy", choices=["standard", "cot"], default="standard",
+                    help="prompting strategy to use (default: standard)")
     ap.add_argument("--mock", action="store_true",
                     help="no API calls; canned responses (pipeline test)")
     ap.add_argument("--output", default=None,
@@ -261,6 +322,7 @@ def main():
     if args.entities:
         entities = entities[: args.entities]
     ratios = args.ratios or list(dataset["ratios"])
+    run_seed = dataset.get("seed", 20260714)
 
     # Resolve Azure OpenAI settings: CLI flag > env var > built-in default.
     azure_deployment = (args.azure_deployment
@@ -271,13 +333,17 @@ def main():
                          or DEFAULT_AZURE_API_VERSION)
 
     # --- set up clients -----------------------------------------------------
-    callers = {}  # provider -> (model_id, fn(prompt, entity) -> (raw, ptok, ctok))
+    callers = {}
     if args.mock:
         for provider in args.models:
             mock = MockClient(provider)
-            model_id = {"gemini": args.gemini_model,
-                        "openai": azure_deployment}[provider] + "-MOCK"
-            callers[provider] = (model_id, mock.call)
+            if provider == "gemini":
+                model_id = args.gemini_model + "-MOCK"
+            elif provider == "openai":
+                model_id = (azure_deployment or args.openai_model) + "-MOCK"
+            elif provider == "anthropic":
+                model_id = args.anthropic_model + "-MOCK"
+            callers[provider] = (model_id, lambda p, e, m=mock, s=args.strategy: m.call(p, e, s))
     else:
         missing = []
         if "gemini" in args.models and not os.environ.get("GEMINI_API_KEY"):
@@ -286,6 +352,8 @@ def main():
             for var in ("AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_API_KEY"):
                 if not os.environ.get(var):
                     missing.append(var)
+        if "anthropic" in args.models and not os.environ.get("ANTHROPIC_API_KEY"):
+            missing.append("ANTHROPIC_API_KEY")
         if missing:
             sys.exit(f"Missing environment variable(s): {', '.join(missing)}. "
                      f"Export them (or add to a .env file) or use --mock.")
@@ -294,7 +362,7 @@ def main():
             gm = genai.Client()  # reads GEMINI_API_KEY from the environment
             callers["gemini"] = (
                 args.gemini_model,
-                lambda p, e, c=gm, m=args.gemini_model: call_gemini(c, m, p))
+                lambda p, e, c=gm, m=args.gemini_model, s=args.strategy: call_gemini(c, m, p, s))
         if "openai" in args.models:
             from openai import AzureOpenAI
             az = AzureOpenAI(
@@ -305,7 +373,13 @@ def main():
             )
             callers["openai"] = (
                 azure_deployment,
-                lambda p, e, c=az, m=azure_deployment: call_openai(c, m, p))
+                lambda p, e, c=az, m=azure_deployment, s=args.strategy: call_openai(c, m, p, s))
+        if "anthropic" in args.models:
+            import anthropic
+            an = anthropic.Anthropic(max_retries=MAX_RETRIES)
+            callers["anthropic"] = (
+                args.anthropic_model,
+                lambda p, e, c=an, m=args.anthropic_model, s=args.strategy: call_anthropic(c, m, p, s))
 
     # --- run ------------------------------------------------------------------
     run_id = uuid.uuid4().hex[:8]
@@ -313,7 +387,7 @@ def main():
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out_path = Path(args.output) if args.output else RESULTS_DIR / f"run_{stamp}_{run_id}.csv"
 
-    total = len(entities) * len(ratios) * len(callers)
+    total = len(entities) * len(ratios) * args.trials * len(callers)
     done = 0
     errors = 0
 
@@ -322,42 +396,46 @@ def main():
         writer.writeheader()
         for entity in entities:
             for ratio in ratios:
-                prompt = build_prompt(entity, ratio)
-                for provider, (model_id, call) in callers.items():
-                    row = {
-                        "run_id": run_id,
-                        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-                        "entity_id": entity["entity_id"],
-                        "entity_name": entity["entity_name"],
-                        "domain": entity["domain"],
-                        "attribute": entity["attribute"],
-                        "ratio": ratio,
-                        "n_docs": len(entity["documents"][ratio]),
-                        "model_provider": provider,
-                        "model_id": model_id,
-                        "question": entity["question"],
-                        "majority_value": entity["majority_value"],
-                        "minority_value": entity["minority_value"],
-                        "raw_response": "", "parsed_answer": "",
-                        "parsed_confidence": "", "prompt_tokens": "",
-                        "completion_tokens": "", "error": "",
-                    }
-                    try:
-                        raw, ptok, ctok = call(prompt, entity)
-                        answer, confidence = parse_response(raw)
-                        row.update(raw_response=raw, parsed_answer=answer,
-                                   parsed_confidence=confidence,
-                                   prompt_tokens=ptok, completion_tokens=ctok)
-                        if not answer:
-                            row["error"] = "parse_failure: no JSON answer extracted"
-                    except Exception as exc:  # one failed call must not stop the run
-                        errors += 1
-                        row["error"] = f"{type(exc).__name__}: {exc}"
-                    writer.writerow(row)
-                    f.flush()
-                    done += 1
-                    print(f"[{done}/{total}] {entity['entity_id']} {ratio} "
-                          f"{provider}{' ERROR' if row['error'] else ''}")
+                for trial_idx in range(1, args.trials + 1):
+                    prompt, doc_positions = build_prompt(entity, ratio, strategy=args.strategy, trial_idx=trial_idx, run_seed=run_seed)
+                    for provider, (model_id, call) in callers.items():
+                        row = {
+                            "run_id": run_id,
+                            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+                            "entity_id": entity["entity_id"],
+                            "entity_name": entity["entity_name"],
+                            "domain": entity["domain"],
+                            "attribute": entity["attribute"],
+                            "ratio": ratio,
+                            "n_docs": len(entity["documents"][ratio]),
+                            "trial_index": trial_idx,
+                            "strategy": args.strategy,
+                            "doc_positions": json.dumps(doc_positions),
+                            "model_provider": provider,
+                            "model_id": model_id,
+                            "question": entity["question"],
+                            "majority_value": entity["majority_value"],
+                            "minority_value": entity["minority_value"],
+                            "raw_response": "", "parsed_answer": "",
+                            "parsed_confidence": "", "prompt_tokens": "",
+                            "completion_tokens": "", "error": "",
+                        }
+                        try:
+                            raw, ptok, ctok = call(prompt, entity)
+                            answer, confidence = parse_response(raw)
+                            row.update(raw_response=raw, parsed_answer=answer,
+                                       parsed_confidence=confidence,
+                                       prompt_tokens=ptok, completion_tokens=ctok)
+                            if not answer:
+                                row["error"] = "parse_failure: no JSON answer extracted"
+                        except Exception as exc:
+                            errors += 1
+                            row["error"] = f"{type(exc).__name__}: {exc}"
+                        writer.writerow(row)
+                        f.flush()
+                        done += 1
+                        print(f"[{done}/{total}] {entity['entity_id']} {ratio} trial {trial_idx} "
+                              f"{provider}{' ERROR' if row['error'] else ''}")
 
     print(f"\nDone. {done} calls, {errors} hard errors. Output: {out_path}")
 
