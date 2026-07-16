@@ -91,6 +91,16 @@ Files: harness/run_experiment.py, results/pilot_gemini_gpt5mini.csv, UPDATES.md
 Status: Harness VERIFIED and ready to scale to the full 50-entity run
 (`python harness/run_experiment.py`). Next: full run, then analysis + Research Brief.
 
+## [Jul 15, 6:30 PM] — Pranav
+Committed: Merged remote updates (Gemini/Azure OpenAI integration, reasoning tokens, rate limit retry) with local modifications. Preserved both upstream model providers (Gemini 3.1 Flash-Lite + Azure GPT-5 Mini) and local Anthropic support, and merged local improvements including prompting strategy configuration (standard vs. CoT), multiple trial repetitions with deterministic doc shuffling, and banking-themed entity attributes (interest rate, monthly fee, lending cap, overdraft limit).
+Files: data/entities.json, data/generate_dataset.py, harness/run_experiment.py, results/pilot_mock.csv
+Status: Pipeline ready and fully merged. Next: run the full experiment with standard and/or CoT prompting strategies.
+
+## [Jul 15, 7:40 PM] — Pranav
+Committed: Documented the core hypotheses, variables, experimental design, and pipeline details in research_brief.md.
+Files: research_brief.md, UPDATES.md
+Status: Design and hypotheses fully documented. Ready to execute the full 50-entity run next.
+
 ## [Jul 15, 10:40 PM] — Kartigan
 Committed: Model A switched BACK to gemini-3.5-flash (frontier Flash tier) now that a key
 with unrestricted 3.5 Flash access is available. This reverses the quota-driven downgrade
