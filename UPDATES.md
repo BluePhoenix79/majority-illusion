@@ -6,16 +6,19 @@ without digging through git history. Newest entries go at the bottom.
 ---
 
 ## [Jul 13] — Team
+
 Repo created. Locked project: Majority Illusion in RAG. Roles assigned —
 Sohan (data), Pranav (harness), Ishaan (analysis), Kartigan (integrator/writing).
 Next: generate the ~50 synthetic entities + conflicting documents.
 
 ## [Jul 14, 11:50 AM] — Kartigan
+
 Committed: Added UPDATES.md changelog and .gitignore (ignores local CLAUDE.md).
 Files: UPDATES.md, .gitignore
 Status: Project scaffolding in place. Next: generate synthetic entities + conflicting documents.
 
 ## [Jul 14, 12:05 PM] — Kartigan
+
 Correction: no fixed roles on this team. All four of us (Kartigan, Sohan, Pranav, Ishaan)
 work across data, the query harness, analysis, and the Research Brief as needed — the
 "Sohan/Pranav/Ishaan/Kartigan = data/harness/analysis/writing" split in the Jul 13 entry
@@ -25,6 +28,7 @@ Files: none (local CLAUDE.md config updated, not pushed)
 Status: Next: generate the ~50 synthetic entities + conflicting documents.
 
 ## [Jul 14, 12:45 PM] — Kartigan
+
 Committed: Dataset generator (50 fictional entities, 18 banking-themed, docs at all
 4 ratios) + query harness (both models, retry/backoff, per-call error capture,
 confidence elicitation, CSV output). Mock pilot passed: 24/24 rows clean, all fields
@@ -39,6 +43,7 @@ then run the real pilot: `python harness/run_experiment.py --entities 3`.
 Full-run cost estimate: <$0.50 total (~$0.02 gpt-4o-mini + ~$0.15 haiku-4-5).
 
 ## [Jul 14, 11:17 PM] — Kartigan
+
 Committed: Switched Model A from OpenAI gpt-4o-mini to Gemini 3.5 Flash (gemini-3.5-flash,
 current frontier Flash, GA 2026-05-19) via the google-genai SDK, key from GEMINI_API_KEY.
 Model B unchanged (Claude Haiku 4.5). Added exponential-backoff+jitter retry for the
@@ -51,6 +56,7 @@ confirm both model strings resolve (no 404) and capture real token usage. Rough 
 cost ~$0.30 (~$0.18 gemini-3.5-flash + ~$0.11 haiku-4-5); to be refined from the pilot.
 
 ## [Jul 15, 1:31 PM] — Kartigan
+
 Committed: Model B switched from Anthropic (Claude Haiku 4.5) to OpenAI via Azure OpenAI
 Service, to use Azure for Students credits. Harness now uses the AzureOpenAI client;
 config read from AZURE_OPENAI_ENDPOINT / AZURE_OPENAI_API_KEY / AZURE_OPENAI_DEPLOYMENT
@@ -66,87 +72,129 @@ local .env. Next: `python harness/run_experiment.py --entities 3`, then refine c
 real usage.
 
 ## [Jul 15, 5:16 PM] — Kartigan
+
 Committed: REAL PILOT PASSED — 24/24 calls clean, 0 errors, every CSV field populated,
 confidence captured for both models. Final model pair:
-  Model A: gemini-3.1-flash-lite   Model B: gpt-5-mini (Azure OpenAI)
+Model A: gemini-3.1-flash-lite Model B: gpt-5-mini (Azure OpenAI)
 Three bugs found and fixed via the pilot:
- 1. gpt-5-mini is a GPT-5 reasoning model — requires max_completion_tokens (rejects
+
+1.  gpt-5-mini is a GPT-5 reasoning model — requires max_completion_tokens (rejects
     max_tokens) and needs headroom for hidden reasoning tokens.
- 2. Gemini is also a thinking model; the old 300-token cap was consumed by thinking
+2.  Gemini is also a thinking model; the old 300-token cap was consumed by thinking
     tokens and truncated the JSON mid-object (parse failures on the conflicting
     ratios, which reason more). Both models now get ~2K output budget.
- 3. Backoff now honors the server-supplied retryDelay on 429s (Gemini's per-minute
+3.  Backoff now honors the server-supplied retryDelay on 429s (Gemini's per-minute
     quota needs ~28s, far longer than the old ~8s exponential ceiling).
-MODEL CHOICE — document in the Research Brief: gemini-3.5-flash is capped at 20 req/day
-on this project's free quota, unusable for a 200-call run, so we dropped to
-gemini-3.1-flash-lite (500 req/day, 15 req/min). Flash-LITE is Google's smallest/cheapest
-tier — it is NOT a frontier model, so do not describe it as one (this matters for the AI
-Use Transparency Statement). Confirmed the exact model ID against live models.list().
-Measured usage (per call avg): gemini 286 in / 26 out; gpt-5-mini 280 in / 229 out
-(the high output is reasoning tokens).
-Full 50-entity run projection (200 calls/model): gemini ~57K in / ~5K out — $0, fits the
-500/day free tier; gpt-5-mini ~56K in / ~46K out — well under $1 on Azure credits.
-Runtime is bound by Gemini's 15 req/min: ~15+ min for the full run.
-Files: harness/run_experiment.py, results/pilot_gemini_gpt5mini.csv, UPDATES.md
-Status: Harness VERIFIED and ready to scale to the full 50-entity run
-(`python harness/run_experiment.py`). Next: full run, then analysis + Research Brief.
+    MODEL CHOICE — document in the Research Brief: gemini-3.5-flash is capped at 20 req/day
+    on this project's free quota, unusable for a 200-call run, so we dropped to
+    gemini-3.1-flash-lite (500 req/day, 15 req/min). Flash-LITE is Google's smallest/cheapest
+    tier — it is NOT a frontier model, so do not describe it as one (this matters for the AI
+    Use Transparency Statement). Confirmed the exact model ID against live models.list().
+    Measured usage (per call avg): gemini 286 in / 26 out; gpt-5-mini 280 in / 229 out
+    (the high output is reasoning tokens).
+    Full 50-entity run projection (200 calls/model): gemini ~57K in / ~5K out — $0, fits the
+    500/day free tier; gpt-5-mini ~56K in / ~46K out — well under $1 on Azure credits.
+    Runtime is bound by Gemini's 15 req/min: ~15+ min for the full run.
+    Files: harness/run_experiment.py, results/pilot_gemini_gpt5mini.csv, UPDATES.md
+    Status: Harness VERIFIED and ready to scale to the full 50-entity run
+    (`python harness/run_experiment.py`). Next: full run, then analysis + Research Brief.
 
 ## [Jul 15, 6:30 PM] — Pranav
+
 Committed: Merged remote updates (Gemini/Azure OpenAI integration, reasoning tokens, rate limit retry) with local modifications. Preserved both upstream model providers (Gemini 3.1 Flash-Lite + Azure GPT-5 Mini) and local Anthropic support, and merged local improvements including prompting strategy configuration (standard vs. CoT), multiple trial repetitions with deterministic doc shuffling, and banking-themed entity attributes (interest rate, monthly fee, lending cap, overdraft limit).
 Files: data/entities.json, data/generate_dataset.py, harness/run_experiment.py, results/pilot_mock.csv
 Status: Pipeline ready and fully merged. Next: run the full experiment with standard and/or CoT prompting strategies.
 
 ## [Jul 15, 7:40 PM] — Pranav
+
 Committed: Documented the core hypotheses, variables, experimental design, and pipeline details in research_brief.md.
 Files: research_brief.md, UPDATES.md
 Status: Design and hypotheses fully documented. Ready to execute the full 50-entity run next.
 
 ## [Jul 15, 10:40 PM] — Kartigan
+
 Committed: Model A switched BACK to gemini-3.5-flash (frontier Flash tier) now that a key
 with unrestricted 3.5 Flash access is available. This reverses the quota-driven downgrade
 to gemini-3.1-flash-lite from the previous entry — that entry's "Flash-Lite is NOT a
 frontier model, don't call it one" caveat NO LONGER APPLIES. Both models (gemini-3.5-flash
-+ gpt-5-mini) are current-generation, so the Research Brief / AI Use Transparency Statement
-can describe the pair accordingly. (Not editing the earlier entry, per the append-only
-rule — noting the reversal here instead.)
-HEADS-UP — NOT YET RUNNABLE: the 2-call fire test currently FAILS on the Gemini side with
-403 PERMISSION_DENIED, reason API_KEY_SERVICE_BLOCKED. This is a KEY-CONFIG issue, not a
-code issue: the key in the local .env is blocked from generativelanguage.googleapis.com
-entirely (even ListModels fails), so no model string would work with it. Fix in Google
-Cloud Console: enable the Generative Language API on the project and/or clear the key's
-API restrictions. The gemini-3.5-flash model string itself was confirmed working earlier
-with a previous key. The gpt-5-mini/Azure side is green (fire test clean).
-Files: harness/run_experiment.py, UPDATES.md
-Status: Code ready for the full 50-entity run, PENDING the Gemini key fix. Re-run the fire
-test first: `python harness/run_experiment.py --entities 1 --ratios 3:1`.
 
-## [Jul 15, 11:12 PM] — Sohan
-Added: visualizations/ folder — four plot scripts + shared scoring module, all verified
-end-to-end against the real pilot CSV:
-  fig1 plot_majority_curve.py     majority-follow rate vs ratio, 95% Wilson CIs (H1)
-  fig2 plot_flag_rate.py          conflict-flag rate at 2:2/3:1/4:1 (H2)
-  fig3 plot_confidence.py         mean confidence by ratio, MAJ vs MIN answers (H3)
-  fig4 plot_outcome_breakdown.py  stacked MAJ/MIN/COM/FLAG shares per ratio/model (H4)
-Scoring rubric lives in visualizations/common.py: responses auto-classified MAJ/MIN/COM/
-FLAG (+OTHER/UNSCORED) with whole-token matching (so "240" never matches inside "2400")
-and conflict-language patterns for FLAG. NOTE: auto-classification is a first pass — the
-planned 15% two-annotator kappa check still applies; spot-check `category` against
-`raw_response` before quoting numbers in the brief.
-Scripts default to the latest results/run_*.csv (fall back to the pilot), print the
-underlying counts to stdout, and save 300-dpi PNGs to visualizations/figures/.
-requirements.txt: added pandas + matplotlib.
-Early pilot signal (n=3/point, NOT quotable): both models 100% majority-follow at 3:1 and
-4:1; flag rate 67% at 2:2 -> 0% at 3:1/4:1; gpt-5-mini confidence climbs 70->88->98 with
-skew. The 2:2 -> 3:1 flagging cliff is worth watching in the full run.
-Files: visualizations/ (common.py, 4 plot scripts, README.md, figures/), requirements.txt
-Status: Figures pipeline ready, verified compatible with tonight's merged changes:
- - model labels now derive from model_id (handles the 3.5-flash switch + anthropic),
- - numeric claim matching handles the new banking formats ($12 / 3.5% match "12.00"
-   or "3.5 percent", never "$120"),
- - confidence figure auto-detects the 0-100 -> 1-5 scale change (don't mix CSVs
-   from both sides of it in one figure),
- - new trial_index/strategy/doc_positions columns tolerated; --strategy flag added
-   to every script since pooling standard+CoT rows would mix two experiments.
-All four scripts re-verified against both the real pilot (old schema) and a mock run
-on the merged harness (new schema). Next: full run (pending Kartigan's Gemini key
-fix), regenerate figures with no args, then the 15% double-scoring + kappa.
+- gpt-5-mini) are current-generation, so the Research Brief / AI Use Transparency Statement
+  can describe the pair accordingly. (Not editing the earlier entry, per the append-only
+  rule — noting the reversal here instead.)
+  HEADS-UP — NOT YET RUNNABLE: the 2-call fire test currently FAILS on the Gemini side with
+  403 PERMISSION_DENIED, reason API_KEY_SERVICE_BLOCKED. This is a KEY-CONFIG issue, not a
+  code issue: the key in the local .env is blocked from generativelanguage.googleapis.com
+  entirely (even ListModels fails), so no model string would work with it. Fix in Google
+  Cloud Console: enable the Generative Language API on the project and/or clear the key's
+  API restrictions. The gemini-3.5-flash model string itself was confirmed working earlier
+  with a previous key. The gpt-5-mini/Azure side is green (fire test clean).
+  Files: harness/run_experiment.py, UPDATES.md
+  Status: Code ready for the full 50-entity run, PENDING the Gemini key fix. Re-run the fire
+  test first: `python harness/run_experiment.py --entities 1 --ratios 3:1`.
+
+## [Jul 15, 10:52 PM] — Kartigan
+
+Committed: ROOT CAUSE of the 403 API_KEY_SERVICE_BLOCKED found and fixed. The Gemini key
+was provisioned for VERTEX AI EXPRESS MODE (Google Cloud credits) -- scoped to
+aiplatform.googleapis.com, not AI Studio's generativelanguage.googleapis.com. That's why
+even ListModels was blocked: the key was never valid for the AI Studio endpoint at all,
+regardless of model name, quota, or restrictions.
+Fix: harness now supports a Vertex Express Mode client path, toggled by a new env var
+GEMINI_USE_VERTEX=1 (set in the local .env). Express Mode client shape is
+genai.Client(vertexai=True, api_key=...) -- NO project/location; the installed SDK
+(google-genai 2.11.0) rejects project/location alongside api_key as mutually exclusive.
+Default (var unset) stays the plain AI Studio client, so a future AI-Studio-scoped key
+still works with zero code changes -- just don't set the var.
+Fire test via the harness itself (not a standalone probe) now PASSES both models:
+gemini-3.5-flash: ans='Vantry Heights' conf=90 in=270 out=20
+gpt-5-mini: ans='Vantry Heights' conf=80 in=271 out=152
+Files: harness/run_experiment.py, UPDATES.md
+Status: Both models verified live. Full pilot (--entities 3) not yet re-run under this
+config -- do that next, then the full 50-entity run on go-ahead.
+
+## [Jul 16, 12:31 AM] — Kartigan
+
+Committed: FULL 50-entity STANDARD-strategy run complete (400 calls, 0 hard exceptions,
+3 parse_failures = 0.75%). CoT-strategy run was IN PROGRESS (~377/400) at commit time and
+NOT included -- rerun it: `python harness/run_experiment.py --strategy cot --output
+results/run_full_cot.csv`. It was running in a background shell tied to this session, which
+will not survive a session/machine switch, so treat it as not done.
+
+BUG FOUND + FIXED: harness wrote CSV output without encoding="utf-8". On Windows, open()
+without an explicit encoding defaults to the system locale (cp1252), so any em-dash or other
+non-ASCII punctuation in a model response corrupted the file for UTF-8 readers (pandas threw
+UnicodeDecodeError on byte 0x97). Converted the already-collected run_full_standard.csv from
+cp1252 to utf-8 in place (0 data loss, verified 400 rows before/after). New runs are correct
+by default now. If you have ANY older CSV in results/ that throws UnicodeDecodeError when
+loaded, it needs the same cp1252->utf-8 conversion.
+
+REAL FINDINGS (using visualizations/common.py's actual classifier, not a naive substring
+check -- see that file for the MAJ/MIN/COM/FLAG/OTHER/UNSCORED rubric):
+ratio majority% gpt-5-mini MAJ% gemini-3.5-flash MAJ% gemini COM%
+2:2 50% 32% 30% 8%
+3:1 75% 100% 54% 22%
+4:1 80% 100% 58% 34%
+4:0 100% 100% 96% 0%
+gpt-5-mini is essentially a STEP FUNCTION: saturates to 100% majority-following the instant
+majority share crosses ~75% and stays flat -- 3:1 and 4:1 are indistinguishable for this
+model. gemini-3.5-flash does NOT saturate -- it climbs gradually and has NOT converged even
+at 80% majority share (4:1), instead increasingly citing both values (COM) rather than
+picking one outright. This is a genuine, reportable per-model difference for Hypothesis 1.
+CORRECTION to my earlier note in this log: I said the majority effect "saturates at 3:1" --
+that was from a 3-entity pilot and is WRONG for Gemini at proper n=50. It only holds for
+gpt-5-mini. Don't repeat the n=3 conclusion in the Research Brief.
+
+RECOMMENDATION -- add intermediate ratios 2:1 (67%, 3 docs) and 3:2 (60%, 5 docs) to
+data/generate_dataset.py's RATIOS dict. Verified this is PURELY ADDITIVE: generated a test
+dataset with both ratios added and diffed against the current data/entities.json -- 0
+mismatches across all 50 entities' names/values/questions/documents for the 4 existing
+ratios (the per-ratio document RNG is seeded independently per ratio, so adding new ratios
+can't perturb old ones). NOT applied -- pending review, since it changes the default full-run
+scope from 400 to 600 calls/strategy. Do NOT add 5:1/6:1 -- the doc-style pool caps at 5
+templates (4:1 already uses all 5), so a 6-doc ratio raises `ValueError: sample larger than
+population` in make_documents(); it would also land past where gpt-5-mini already saturates
+and gemini is already near-saturated, so it wouldn't add signal anyway.
+Files: harness/run_experiment.py, results/run_full_standard.csv, UPDATES.md
+Status: Standard-strategy data (n=50, both models) is clean and ready for analysis. CoT run
+needs to be started fresh on the Mac. entities.json ratio addition needs a decision -- if
+approved, run `python data/generate_dataset.py` then regenerate both full runs.

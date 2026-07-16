@@ -34,6 +34,14 @@ continues. Rows are flushed to disk after every call, so a crash loses nothing.
 
 Config is read from the environment:
   GEMINI_API_KEY
+  GEMINI_USE_VERTEX          set to 1/true to use Vertex AI Express Mode instead
+                              of the AI Studio endpoint (needed for keys scoped
+                              to Google Cloud / aiplatform.googleapis.com rather
+                              than generativelanguage.googleapis.com -- a plain
+                              AI Studio key gets a 403 API_KEY_SERVICE_BLOCKED
+                              from Vertex, and vice versa; use whichever matches
+                              how the key was provisioned). Express Mode takes
+                              ONLY the API key -- no project/location needed.
   AZURE_OPENAI_ENDPOINT      e.g. https://<resource>.openai.azure.com/
   AZURE_OPENAI_API_KEY
   AZURE_OPENAI_DEPLOYMENT    your deployment name (default: gpt-4o-mini)
@@ -359,7 +367,16 @@ def main():
                      f"Export them (or add to a .env file) or use --mock.")
         if "gemini" in args.models:
             from google import genai
-            gm = genai.Client()  # reads GEMINI_API_KEY from the environment
+            # GEMINI_USE_VERTEX=1 -> Vertex AI Express Mode (Google Cloud
+            # credits; key scoped to aiplatform.googleapis.com, not the AI
+            # Studio generativelanguage.googleapis.com endpoint). Express Mode
+            # takes ONLY vertexai=True + api_key -- passing project/location
+            # alongside api_key is rejected by the SDK ("mutually exclusive").
+            # Default path (unset) is the plain AI Studio client.
+            if os.environ.get("GEMINI_USE_VERTEX", "").lower() in ("1", "true", "yes"):
+                gm = genai.Client(vertexai=True, api_key=os.environ["GEMINI_API_KEY"])
+            else:
+                gm = genai.Client()  # reads GEMINI_API_KEY from the environment
             callers["gemini"] = (
                 args.gemini_model,
                 lambda p, e, c=gm, m=args.gemini_model, s=args.strategy: call_gemini(c, m, p, s))
@@ -391,7 +408,11 @@ def main():
     done = 0
     errors = 0
 
-    with out_path.open("w", newline="") as f:
+    # encoding="utf-8" is required: on Windows, open() without it defaults to
+    # the system locale (cp1252), and model responses containing em-dashes or
+    # other non-ASCII punctuation then fail to round-trip through pandas
+    # (UnicodeDecodeError on 0x97 etc.) when the CSV is read back as UTF-8.
+    with out_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
         writer.writeheader()
         for entity in entities:
