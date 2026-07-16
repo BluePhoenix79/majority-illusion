@@ -198,3 +198,54 @@ Files: harness/run_experiment.py, results/run_full_standard.csv, UPDATES.md
 Status: Standard-strategy data (n=50, both models) is clean and ready for analysis. CoT run
 needs to be started fresh on the Mac. entities.json ratio addition needs a decision -- if
 approved, run `python data/generate_dataset.py` then regenerate both full runs.
+
+## [Jul 16, 12:44 AM] — Kartigan
+Committed: Added ratios 2:1 + 3:2, CoT run results, and three bug fixes. Did NOT run any
+experiment (no new API calls) -- a third model is being added first.
+
+RATIOS ADDED (2:1 = 0.67 share / 3 docs, 3:2 = 0.60 / 5 docs). These fill the 0.50->0.75
+gap where behavior actually transitions. entities.json regenerated and diffed against the
+committed baseline: 0 mismatches across all 50 entities for the 4 pre-existing ratios, so
+run_full_standard.csv stays valid and comparable. Default run scope is now 600 calls per
+strategy (6 ratios x 50 x 2 models), up from 400.
+DO NOT ADD 5:1/6:1: make_documents assigns one distinct DOC_STYLE per doc and there are only
+5 styles (4:1 already uses all 5). A 6-doc ratio now raises a clear ValueError (guard added)
+instead of a bare IndexError. Adding DOC_STYLES would shift the main RNG stream and
+regenerate EVERY entity differently -- invalidating all collected data. Don't.
+
+BUG FIXES:
+ 1. call_with_backoff only caught google.genai exception types. Network-layer failures
+    (ConnectTimeout etc.) come from the underlying httpx transport and bypassed retry
+    entirely, failing on first hit. This cost 40 Gemini calls during the Jul 15 WiFi
+    outage. Now retries httpx.TimeoutException / NetworkError / RemoteProtocolError.
+ 2. visualizations/common.py MAJORITY_SHARE had no entry for 2:1 / 3:2. load_results()
+    maps that column, so those ratios would have become NaN and been SILENTLY DROPPED from
+    every figure -- no error, just missing data. Added, plus RATIO_ORDER / CONFLICT_RATIOS.
+ 3. MODEL_LABELS said "Gemini 3.1 Flash-Lite" -- stale from the quota-downgrade era. We are
+    on gemini-3.5-flash; every figure would have carried the wrong model name into the
+    Research Brief. Fixed. Also added anthropic label + a distinct color (plot scripts fall
+    back to gray, which collides with the OTHER category) for the incoming third model.
+
+COT RUN (results/run_full_cot.csv) -- COMPLETED, committed, but READ THIS BEFORE USING:
+72/400 calls failed as network timeouts during the WiFi outage. The loss is NOT random: it
+hit a contiguous block E029-E038, and ALL 72 failures are domain=general (0 banking). That
+shifts the CoT sample to 49% banking vs the standard run's 40%, which CONFOUNDS any direct
+std-vs-cot comparison and would badly bias H3 (domain rigidity). Re-run CoT before using it
+for H3. Fix #1 above should prevent a recurrence.
+
+H2 FINDING (computed on a MATCHED sample -- 322 cells scored in BOTH runs, which removes the
+domain confound above; the effect holds):
+  ratio  gemini std->cot MAJ%      gpt-5-mini std->cot MAJ%
+  2:2    28% -> 33%  (+5)          32% -> 24%  (-7)
+  3:1    57% -> 70%  (+13)         100% -> 95% (-5)
+  4:1    55% -> 80%  (+25)         100% -> 93% (-7)
+H2 predicted CoT would INCREASE flagging/compromise and reduce majority-following. That is
+weakly true for gpt-5-mini (-5 to -7) but REVERSED for Gemini: CoT makes Gemini follow the
+majority MORE (+25 at 4:1). Mechanism: under standard prompting Gemini hedges (34% COM at
+4:1); CoT makes it stop hedging and commit -- and it commits to the majority. Worth writing
+up as a per-model result rather than a single H2 verdict.
+Files: data/generate_dataset.py, data/entities.json, harness/run_experiment.py,
+visualizations/common.py, results/run_full_cot.csv, UPDATES.md
+Status: No experiment re-run yet (intentional -- third model pending). Once the third model
+is wired in: add it to MODEL_LABELS/MODEL_COLORS in visualizations/common.py, then re-run
+both strategies over the full 6-ratio dataset (600 calls/strategy).

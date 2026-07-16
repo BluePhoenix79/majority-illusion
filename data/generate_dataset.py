@@ -4,10 +4,23 @@ Produces data/entities.json: ~50 fictional entities (subset banking-themed),
 each with a factual question, two conflicting answer values (majority vs
 minority), and per-ratio document sets:
 
-  4:0  -> 4 docs, all supporting the majority value (control)
-  3:1  -> 3 majority docs, 1 minority doc
-  2:2  -> 2 majority docs, 2 minority docs
-  4:1  -> 4 majority docs, 1 minority doc
+  4:0  -> 4 docs, all supporting the majority value (control)   majority share 1.00
+  3:1  -> 3 majority docs, 1 minority doc                       majority share 0.75
+  2:2  -> 2 majority docs, 2 minority docs                      majority share 0.50
+  4:1  -> 4 majority docs, 1 minority doc                       majority share 0.80
+  2:1  -> 2 majority docs, 1 minority doc                       majority share 0.67
+  3:2  -> 3 majority docs, 2 minority docs                      majority share 0.60
+
+2:1 and 3:2 fill the gap between 2:2 (0.50) and 3:1 (0.75) -- the region where
+model behavior actually transitions from "flags the conflict" to "follows the
+majority". Adding them is purely additive: the per-ratio document order is
+seeded independently (order_rng below), and the style/city draws happen before
+the ratio loop, so existing ratios regenerate byte-identically.
+
+CAP: total docs per ratio must be <= len(DOC_STYLES) (5), since make_documents
+assigns one distinct style per doc. That rules out 5:1 (6 docs) and beyond
+without adding more DOC_STYLES entries -- and adding styles WOULD shift the
+main RNG stream and regenerate every entity differently.
 
 Fully deterministic (fixed seed) so the whole team regenerates identical data.
 
@@ -28,6 +41,8 @@ RATIOS = {
     "3:1": (3, 1),
     "2:2": (2, 2),
     "4:1": (4, 1),
+    "2:1": (2, 1),
+    "3:2": (3, 2),
 }
 
 # ---------------------------------------------------------------------------
@@ -158,6 +173,17 @@ BANKING_ATTRIBUTES = [
 
 def make_documents(rng, name, domain_desc, claim_template, maj_value, min_value):
     """Build 5 distinct document templates; return functions of value assignment."""
+    # Each doc in a ratio gets its own distinct style, so no ratio may need more
+    # docs than there are styles. Checked up front: otherwise this fails later as
+    # a bare IndexError from styles[n_maj + i], which is hard to trace back here.
+    _worst = max(n_maj + n_min for n_maj, n_min in RATIOS.values())
+    if _worst > len(DOC_STYLES):
+        raise ValueError(
+            f"RATIOS needs {_worst} docs for its largest ratio but only "
+            f"{len(DOC_STYLES)} DOC_STYLES exist. Add more DOC_STYLES entries -- "
+            f"but note that changes the main RNG stream, so every entity's name, "
+            f"values, and documents will regenerate differently."
+        )
     styles = rng.sample(DOC_STYLES, 5)
     city = rng.choice(CITIES)
 
