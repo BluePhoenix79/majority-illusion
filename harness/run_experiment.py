@@ -65,6 +65,7 @@ import sys
 import time
 import uuid
 import random as py_random
+from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -87,6 +88,74 @@ GEMINI_MAX_OUTPUT_TOKENS = 2048
 OPENAI_MAX_COMPLETION_TOKENS = 2000
 ANTHROPIC_MAX_TOKENS = 2048
 MAX_RETRIES = 4  # exponential-backoff attempts on 429/5xx/connection errors
+
+# USD per 1M tokens, as (input, output). Token COUNTS reported by the counter are
+# measured from each API response and are exact; the dollar figures are only as
+# good as this table.
+#
+#   gemini-3.5-flash      VERIFIED against Google's published rate.
+#   gpt-5-mini            NOT VERIFIED -- could not confirm a published rate for
+#                         this exact model id; this is the nearest comparable
+#                         small GPT-5-class tier. Treat its cost as indicative
+#                         only, and check the Azure pricing page before quoting
+#                         any number in the Research Brief.
+#   gemini-3.1-flash-lite NOT VERIFIED (cheapest Flash tier; only used for a few
+#                         early pilot calls).
+#
+# A model_id absent from this table still gets exact token counts, just no cost.
+PRICING = {
+    "gemini-3.5-flash":      (1.50, 9.00),   # verified
+    "gemini-3.1-flash-lite": (0.10, 0.40),   # unverified estimate
+    "gpt-5-mini":            (0.75, 4.50),   # unverified estimate
+    "gpt-4o-mini":           (0.15, 0.60),   # unverified estimate
+    "claude-haiku-4-5":      (1.00, 5.00),   # verified
+}
+UNVERIFIED_PRICES = {"gemini-3.1-flash-lite", "gpt-5-mini", "gpt-4o-mini"}
+
+
+def price_for(model_id):
+    """(input_rate, output_rate) per 1M tokens, or None if unpriced.
+
+    Mock ids are deliberately unpriced: mock runs never call an API, so their
+    cost is zero and their token counts are chars/4 guesses, not real usage.
+    """
+    mid = str(model_id).lower()
+    if mid.endswith("-mock"):
+        return None
+    for prefix, rates in PRICING.items():
+        if mid.startswith(prefix):
+            return rates
+    return None
+
+
+def summarize_usage(usage, stream=None):
+    """Print a token + cost summary. `usage` maps model_id -> [calls, in, out]."""
+    out = stream or sys.stdout
+    if not usage:
+        return
+    print("\n=== token usage ===", file=out)
+    print(f"{'model':24} {'calls':>5} {'input':>10} {'output':>10} {'total':>10} {'est. cost':>10}",
+          file=out)
+    t_calls = t_in = t_out = 0
+    t_cost = 0.0
+    any_unverified = False
+    for mid, (calls, tin, tout) in sorted(usage.items()):
+        rates = price_for(mid)
+        if rates:
+            cost = tin / 1e6 * rates[0] + tout / 1e6 * rates[1]
+            unverified = any(mid.lower().startswith(p) for p in UNVERIFIED_PRICES)
+            any_unverified |= unverified
+            cost_s = f"${cost:,.4f}" + ("*" if unverified else "")
+            t_cost += cost
+        else:
+            cost_s = "n/a"
+        print(f"{mid:24} {calls:5} {tin:10,} {tout:10,} {tin+tout:10,} {cost_s:>10}", file=out)
+        t_calls += calls; t_in += tin; t_out += tout
+    print(f"{'TOTAL':24} {t_calls:5} {t_in:10,} {t_out:10,} {t_in+t_out:10,} "
+          f"{'$' + format(t_cost, ',.4f'):>10}", file=out)
+    if any_unverified:
+        print("* cost uses an UNVERIFIED rate -- see PRICING in this file. Token "
+              "counts are exact; verify rates before quoting costs.", file=out)
 
 SYSTEM_PROMPT = (
     "You are an information assistant. Based only on the provided documents, "
@@ -423,6 +492,7 @@ def main():
     total = len(entities) * len(ratios) * args.trials * len(callers)
     done = 0
     errors = 0
+    usage = defaultdict(lambda: [0, 0, 0])  # model_id -> [calls, input, output]
 
     # encoding="utf-8" is required: on Windows, open() without it defaults to
     # the system locale (cp1252), and model responses containing em-dashes or
@@ -463,6 +533,13 @@ def main():
                             row.update(raw_response=raw, parsed_answer=answer,
                                        parsed_confidence=confidence,
                                        prompt_tokens=ptok, completion_tokens=ctok)
+                            # Count tokens for any call the API actually billed,
+                            # including ones whose JSON failed to parse -- those
+                            # still cost money.
+                            u = usage[model_id]
+                            u[0] += 1
+                            u[1] += int(ptok or 0)
+                            u[2] += int(ctok or 0)
                             if not answer:
                                 row["error"] = "parse_failure: no JSON answer extracted"
                         except Exception as exc:
@@ -475,6 +552,7 @@ def main():
                               f"{provider}{' ERROR' if row['error'] else ''}")
 
     print(f"\nDone. {done} calls, {errors} hard errors. Output: {out_path}")
+    summarize_usage(usage)
 
 
 if __name__ == "__main__":
