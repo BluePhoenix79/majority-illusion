@@ -17,7 +17,7 @@ from common import (MODEL_COLORS, MUTED, RATIO_ORDER, apply_style,
 
 def main():
     args = make_arg_parser(__doc__.splitlines()[0]).parse_args()
-    df = load_results(args.csv, args.strategy)
+    df = load_results(args.csv, args.strategy, args.exclude)
     scored = df[df["category"] != "UNSCORED"]
 
     apply_style()
@@ -37,8 +37,9 @@ def main():
             rate = k / n if n else float("nan")
             lo, hi = wilson_ci(k, n)
             rates.append(rate)
-            los.append(rate - lo)
-            his.append(hi - rate)
+            # clamp: Wilson bounds can land a float-hair inside the rate at 0%/100%
+            los.append(max(0.0, rate - lo))
+            his.append(max(0.0, hi - rate))
             print(f"{provider:8s} {ratio}: MAJ {k}/{n} = {rate:.0%}" if n
                   else f"{provider:8s} {ratio}: no data")
         label = group["model_label"].iloc[0]

@@ -23,7 +23,7 @@ GROUPS = [("MAJ", "Followed majority (correct)", CATEGORY_COLORS["MAJ"]),
 
 def main():
     args = make_arg_parser(__doc__.splitlines()[0]).parse_args()
-    df = load_results(args.csv, args.strategy)
+    df = load_results(args.csv, args.strategy, args.exclude)
     scored = df[df["category"].isin(["MAJ", "MIN"])
                 & df["confidence"].notna()]
 

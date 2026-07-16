@@ -17,7 +17,7 @@ from common import (CONFLICT_RATIOS, MODEL_COLORS, MUTED, SURFACE, apply_style,
 
 def main():
     args = make_arg_parser(__doc__.splitlines()[0]).parse_args()
-    df = load_results(args.csv, args.strategy)
+    df = load_results(args.csv, args.strategy, args.exclude)
     scored = df[(df["category"] != "UNSCORED")
                 & (df["ratio"].isin(CONFLICT_RATIOS))]
 
@@ -39,8 +39,9 @@ def main():
             rate = k / n if n else 0.0
             lo, hi = wilson_ci(k, n)
             rates.append(rate)
-            errs_lo.append(rate - lo)
-            errs_hi.append(hi - rate)
+            # clamp: Wilson bounds can land a float-hair inside the rate at 0%/100%
+            errs_lo.append(max(0.0, rate - lo))
+            errs_hi.append(max(0.0, hi - rate))
             print(f"{provider:8s} {ratio}: FLAG {k}/{n} = {rate:.0%}" if n
                   else f"{provider:8s} {ratio}: no data")
         label = group["model_label"].iloc[0] if len(group) else provider

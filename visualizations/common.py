@@ -118,7 +118,7 @@ def classify(row):
     return "FLAG" if flagged else "OTHER"
 
 
-def load_results(csv_paths=None, strategy=None):
+def load_results(csv_paths=None, strategy=None, exclude=None):
     """Load one or more result CSVs into a scored DataFrame.
 
     `strategy` filters to one prompting strategy (e.g. "standard" or "cot")
@@ -150,6 +150,12 @@ def load_results(csv_paths=None, strategy=None):
                   "figures pool them. Re-run with --strategy <name> to split.")
 
     df["category"] = df.apply(classify, axis=1)
+    if exclude:
+        before = len(df)
+        df = df[~df["category"].isin(exclude)]
+        print(f"WARNING: excluded categories {list(exclude)} — dropped "
+              f"{before - len(df)} rows. Preview only; do not quote these "
+              "figures in the brief.")
     df["confidence"] = pd.to_numeric(df["parsed_confidence"], errors="coerce")
     df["majority_share"] = df["ratio"].map(MAJORITY_SHARE)
     df["model_label"] = df["model_id"].map(pretty_model_label)
@@ -205,6 +211,9 @@ def make_arg_parser(description):
     ap.add_argument("--strategy", default=None,
                     help="filter to one prompting strategy (standard/cot) when "
                          "the CSV contains several")
+    ap.add_argument("--exclude", nargs="*", default=None, metavar="CAT",
+                    help="drop rows scored as these categories before plotting "
+                         "(e.g. --exclude COM); for previews/sensitivity checks")
     return ap
 
 

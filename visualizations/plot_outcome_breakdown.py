@@ -18,7 +18,7 @@ from common import (CATEGORY_COLORS, CATEGORY_ORDER, RATIO_ORDER, SURFACE,
 
 def main():
     args = make_arg_parser(__doc__.splitlines()[0]).parse_args()
-    df = load_results(args.csv, args.strategy)
+    df = load_results(args.csv, args.strategy, args.exclude)
 
     providers = sorted(df["model_provider"].unique())
     apply_style()
@@ -62,7 +62,7 @@ def main():
     axes[0][0].set_ylabel("Share of responses")
     handles, labels = axes[0][0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="upper center", ncol=len(labels),
-               bbox_to_anchor=(0.5, 0.02), fontsize=9)
+               bbox_to_anchor=(0.5, -0.04), fontsize=9)
     fig.suptitle("Response categories by evidence ratio", fontsize=12)
 
     save_figure(fig, args, "fig4_outcome_breakdown.png")
