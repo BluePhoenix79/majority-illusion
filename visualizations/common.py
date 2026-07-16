@@ -27,12 +27,27 @@ RESULTS_DIR = REPO_ROOT / "results"
 FIGURES_DIR = Path(__file__).resolve().parent / "figures"
 
 # Conflict conditions in order of increasing majority share, then the
-# no-conflict control. majority share: 2:2 = .50, 3:1 = .75, 4:1 = .80, 4:0 = 1.
-RATIO_ORDER = ["2:2", "3:1", "4:1", "4:0"]
-CONFLICT_RATIOS = ["2:2", "3:1", "4:1"]
-MAJORITY_SHARE = {"2:2": 0.50, "3:1": 0.75, "4:1": 0.80, "4:0": 1.00}
+# no-conflict control.
+# NOTE: every ratio in data/entities.json must have a MAJORITY_SHARE entry --
+# load_results() maps this column, and an unmapped ratio becomes NaN and is
+# silently dropped from the plots rather than erroring.
+RATIO_ORDER = ["2:2", "3:2", "2:1", "3:1", "4:1", "4:0"]
+CONFLICT_RATIOS = ["2:2", "3:2", "2:1", "3:1", "4:1"]
+MAJORITY_SHARE = {
+    "2:2": 0.50,   # 2 of 4
+    "3:2": 0.60,   # 3 of 5
+    "2:1": 2 / 3,  # 2 of 3  (~0.67)
+    "3:1": 0.75,   # 3 of 4
+    "4:1": 0.80,   # 4 of 5
+    "4:0": 1.00,   # 4 of 4 (control, no conflict)
+}
 
-MODEL_LABELS = {"gemini": "Gemini 3.1 Flash-Lite", "openai": "GPT-5 mini (Azure)"}
+# Keyed by the model_provider column in the CSV, not the model id.
+MODEL_LABELS = {
+    "gemini": "Gemini 3.5 Flash",
+    "openai": "GPT-5 mini (Azure)",
+    "anthropic": "Claude Haiku 4.5",
+}
 
 # Validated categorical palette (dataviz reference palette, light mode).
 SURFACE = "#fcfcfb"
@@ -41,7 +56,9 @@ INK_2 = "#52514e"
 MUTED = "#898781"
 GRID = "#e1e0d9"
 BASELINE = "#c3c2b7"
-MODEL_COLORS = {"gemini": "#2a78d6", "openai": "#eb6834"}   # blue / orange
+# blue / orange / violet. Plot scripts fall back to MUTED (gray) for an unknown
+# provider, so a new model renders but is easy to miss -- add it here.
+MODEL_COLORS = {"gemini": "#2a78d6", "openai": "#eb6834", "anthropic": "#4a3aa7"}
 CATEGORY_COLORS = {
     "MAJ": "#2a78d6",       # blue
     "MIN": "#eb6834",       # orange

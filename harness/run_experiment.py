@@ -183,6 +183,20 @@ def call_with_backoff(fn, max_retries=MAX_RETRIES, base_delay=1.0, max_delay=65.
     actually lands after the quota window rather than failing again."""
     from google.genai import errors as genai_errors
 
+    # Network-layer failures (dropped WiFi, DNS blip, connect/read timeout) are
+    # raised by the underlying httpx transport, NOT as google.genai errors, so
+    # they bypass the genai_errors handlers below entirely. A 2026-07-15 run lost
+    # 40 Gemini calls to un-retried ConnectTimeouts during a WiFi outage for
+    # exactly this reason. These are transient by definition -- retry them.
+    import httpx
+    NETWORK_ERRORS = (
+        httpx.TimeoutException,     # covers Connect/Read/Write/PoolTimeout
+        httpx.NetworkError,         # covers ConnectError/ReadError/WriteError
+        httpx.RemoteProtocolError,
+        ConnectionError,            # stdlib, in case a lower layer raises it
+        TimeoutError,
+    )
+
     def _is_transient(exc):
         code = getattr(exc, "code", None) or getattr(exc, "status_code", None)
         if code in (408, 409, 429) or (isinstance(code, int) and code >= 500):
@@ -203,6 +217,8 @@ def call_with_backoff(fn, max_retries=MAX_RETRIES, base_delay=1.0, max_delay=65.
                 raise
             last = exc
         except (genai_errors.ServerError, genai_errors.APIError) as exc:
+            last = exc
+        except NETWORK_ERRORS as exc:
             last = exc
         backoff = base_delay * (2 ** attempt)
         server_delay = _server_retry_delay(last) or 0
