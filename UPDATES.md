@@ -138,3 +138,49 @@ Fire test via the harness itself (not a standalone probe) now PASSES both models
 Files: harness/run_experiment.py, UPDATES.md
 Status: Both models verified live. Full pilot (--entities 3) not yet re-run under this
 config -- do that next, then the full 50-entity run on go-ahead.
+
+## [Jul 16, 12:31 AM] — Kartigan
+Committed: FULL 50-entity STANDARD-strategy run complete (400 calls, 0 hard exceptions,
+3 parse_failures = 0.75%). CoT-strategy run was IN PROGRESS (~377/400) at commit time and
+NOT included -- rerun it: `python harness/run_experiment.py --strategy cot --output
+results/run_full_cot.csv`. It was running in a background shell tied to this session, which
+will not survive a session/machine switch, so treat it as not done.
+
+BUG FOUND + FIXED: harness wrote CSV output without encoding="utf-8". On Windows, open()
+without an explicit encoding defaults to the system locale (cp1252), so any em-dash or other
+non-ASCII punctuation in a model response corrupted the file for UTF-8 readers (pandas threw
+UnicodeDecodeError on byte 0x97). Converted the already-collected run_full_standard.csv from
+cp1252 to utf-8 in place (0 data loss, verified 400 rows before/after). New runs are correct
+by default now. If you have ANY older CSV in results/ that throws UnicodeDecodeError when
+loaded, it needs the same cp1252->utf-8 conversion.
+
+REAL FINDINGS (using visualizations/common.py's actual classifier, not a naive substring
+check -- see that file for the MAJ/MIN/COM/FLAG/OTHER/UNSCORED rubric):
+  ratio  majority%  gpt-5-mini MAJ%   gemini-3.5-flash MAJ%   gemini COM%
+  2:2    50%        32%               30%                     8%
+  3:1    75%        100%              54%                     22%
+  4:1    80%        100%              58%                     34%
+  4:0    100%       100%              96%                     0%
+gpt-5-mini is essentially a STEP FUNCTION: saturates to 100% majority-following the instant
+majority share crosses ~75% and stays flat -- 3:1 and 4:1 are indistinguishable for this
+model. gemini-3.5-flash does NOT saturate -- it climbs gradually and has NOT converged even
+at 80% majority share (4:1), instead increasingly citing both values (COM) rather than
+picking one outright. This is a genuine, reportable per-model difference for Hypothesis 1.
+CORRECTION to my earlier note in this log: I said the majority effect "saturates at 3:1" --
+that was from a 3-entity pilot and is WRONG for Gemini at proper n=50. It only holds for
+gpt-5-mini. Don't repeat the n=3 conclusion in the Research Brief.
+
+RECOMMENDATION -- add intermediate ratios 2:1 (67%, 3 docs) and 3:2 (60%, 5 docs) to
+data/generate_dataset.py's RATIOS dict. Verified this is PURELY ADDITIVE: generated a test
+dataset with both ratios added and diffed against the current data/entities.json -- 0
+mismatches across all 50 entities' names/values/questions/documents for the 4 existing
+ratios (the per-ratio document RNG is seeded independently per ratio, so adding new ratios
+can't perturb old ones). NOT applied -- pending review, since it changes the default full-run
+scope from 400 to 600 calls/strategy. Do NOT add 5:1/6:1 -- the doc-style pool caps at 5
+templates (4:1 already uses all 5), so a 6-doc ratio raises `ValueError: sample larger than
+population` in make_documents(); it would also land past where gpt-5-mini already saturates
+and gemini is already near-saturated, so it wouldn't add signal anyway.
+Files: harness/run_experiment.py, results/run_full_standard.csv, UPDATES.md
+Status: Standard-strategy data (n=50, both models) is clean and ready for analysis. CoT run
+needs to be started fresh on the Mac. entities.json ratio addition needs a decision -- if
+approved, run `python data/generate_dataset.py` then regenerate both full runs.

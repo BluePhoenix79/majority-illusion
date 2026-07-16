@@ -408,7 +408,11 @@ def main():
     done = 0
     errors = 0
 
-    with out_path.open("w", newline="") as f:
+    # encoding="utf-8" is required: on Windows, open() without it defaults to
+    # the system locale (cp1252), and model responses containing em-dashes or
+    # other non-ASCII punctuation then fail to round-trip through pandas
+    # (UnicodeDecodeError on 0x97 etc.) when the CSV is read back as UTF-8.
+    with out_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
         writer.writeheader()
         for entity in entities:
