@@ -72,9 +72,11 @@ def main():
     handles = [Patch(facecolor=CATEGORY_COLORS[c], label=c) for c in legend_cats]
     fig.legend(handles, legend_cats, loc="upper center", ncol=len(legend_cats),
                bbox_to_anchor=(0.5, -0.04), fontsize=9)
+    # reserve headroom so the two-line suptitle clears the per-panel titles
+    fig.subplots_adjust(top=0.82)
     fig.suptitle(
         f"Response categories by evidence ratio\n{arm_display_label(df)}",
-        fontsize=12,
+        fontsize=12, y=1.0,
     )
 
     save_figure(fig, args, "fig4_outcome_breakdown.png")

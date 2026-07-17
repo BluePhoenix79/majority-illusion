@@ -214,7 +214,8 @@ Question: {question}"""
 
 CLAIM_LABELS = """Use these counterbalanced labels:
 Claim A: {claim_a_value}
-Claim B: {claim_b_value}"""
+Claim B: {claim_b_value}
+In the "answer" field give the actual value itself (e.g. the number or name), not the label "Claim A" or "Claim B"."""
 
 PRIMARY_WITH_CONFIDENCE = CLAIM_LABELS + """
 

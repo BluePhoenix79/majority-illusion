@@ -164,6 +164,18 @@ def _value_in(value, text):
     return any(float(n) == target for n in _NUM_RE.findall(text))
 
 
+def _mentions_claim_label(answer, letter):
+    """True if a normalized answer denotes counterbalanced Claim A/B by label.
+
+    Matches "claim a" / "claima" anywhere, or a bare "a" / "(a)" answer -- the
+    forms models use when they echo the label instead of the value.
+    """
+    return bool(
+        re.search(rf"\bclaim\s*{letter}\b", answer)
+        or re.fullmatch(rf"\(?{letter}\)?", answer.strip())
+    )
+
+
 def _row_value(row, key, default=""):
     """Read a key from a dict or Series without treating missing data as true."""
     try:
@@ -174,6 +186,11 @@ def _row_value(row, key, default=""):
         except (KeyError, TypeError):
             value = default
     return default if pd.isna(value) else value
+
+
+def _row_value_at(df, idx, key, default=""):
+    """Safe cell read: returns default when the column is absent."""
+    return df.at[idx, key] if key in df.columns else default
 
 
 def score_response(row):
@@ -193,14 +210,36 @@ def score_response(row):
         }
 
     answer = _norm(_row_value(row, "parsed_answer"))
-    has_maj = _value_in(_row_value(row, "majority_value"), answer)
-    has_min = _value_in(_row_value(row, "minority_value"), answer)
+    maj_value = _row_value(row, "majority_value")
+    min_value = _row_value(row, "minority_value")
+    has_maj = _value_in(maj_value, answer)
+    has_min = _value_in(min_value, answer)
+
+    # Resolve counterbalanced claim labels. Models sometimes answer with the
+    # label ("Claim A"/"Claim B") instead of the value it denotes; without this
+    # a label-only answer falls through to OTHER even though it is really a MAJ
+    # or MIN response. Additive and guarded: it only fires when the claim-value
+    # columns are present and the answer references a label, so answers that
+    # already contain the value (and legacy rows without claim columns) are
+    # unaffected.
+    claim_a = _norm(_row_value(row, "claim_a_value"))
+    claim_b = _norm(_row_value(row, "claim_b_value"))
+    if claim_a and _mentions_claim_label(answer, "a"):
+        has_maj = has_maj or _value_in(maj_value, claim_a)
+        has_min = has_min or _value_in(min_value, claim_a)
+    if claim_b and _mentions_claim_label(answer, "b"):
+        has_maj = has_maj or _value_in(maj_value, claim_b)
+        has_min = has_min or _value_in(min_value, claim_b)
+
     mentions_conflict = int(any(
         re.search(pattern, answer) for pattern in CONFLICT_MENTION_PATTERNS
     ))
-    abstained = int(any(
-        re.search(pattern, answer) for pattern in ABSTENTION_PATTERNS
-    ))
+    # A bare "indeterminate ..." answer is the model choosing the indeterminate
+    # option offered by the prompt -- a deliberate abstention, not an OTHER.
+    abstained = int(
+        bool(re.match(r"^\s*indeterminate\b", answer))
+        or any(re.search(pattern, answer) for pattern in ABSTENTION_PATTERNS)
+    )
 
     if abstained:
         category = "FLAG"
@@ -375,6 +414,22 @@ def load_results(csv_paths=None, strategy=None, exclude=None, arm=None):
             df["parsed_answer"] = df.get("modal_answer", "")
         if "error" not in df.columns:
             df["error"] = df.get("posthoc_error", "")
+        # Repair condition rows whose stored modal_category predates the
+        # claim-label scorer fix: re-score OTHER rows through the current scorer
+        # using the modal answer. Targeted at OTHER only, so correctly stored
+        # MAJ/MIN/COM/FLAG/TIE/AMBIGUOUS rows are never disturbed; a genuinely
+        # novel modal answer stays OTHER. Consistent no-op on correctly scored
+        # future runs.
+        if "modal_answer" in df.columns:
+            for idx in df.index[df["category"].eq("OTHER")]:
+                df.at[idx, "category"] = score_response({
+                    "parsed_answer": df.at[idx, "modal_answer"],
+                    "majority_value": _row_value_at(df, idx, "majority_value"),
+                    "minority_value": _row_value_at(df, idx, "minority_value"),
+                    "claim_a_value": _row_value_at(df, idx, "claim_a_value"),
+                    "claim_b_value": _row_value_at(df, idx, "claim_b_value"),
+                    "error": "",
+                })["category"]
     else:
         # Raw logs contain a fourth, post-hoc API call. Outcome analyses use
         # only primary answer calls; token_report.py still counts both phases.
