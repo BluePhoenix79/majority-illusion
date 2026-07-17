@@ -136,6 +136,23 @@ ABSTENTION_PATTERNS = (
     r"\bneither\s+(?:claim|value|answer)\s+can\s+be\s+(?:determined|selected)",
 )
 
+# Models occasionally put a terse non-answer in the JSON ``answer`` field
+# instead of writing a full refusal sentence. These are behavioral
+# abstentions, not novel factual answers. Keep this deliberately narrow so a
+# response that merely *mentions* conflict and still supplies a claim value is
+# classified MAJ/MIN/COM rather than FLAG.
+TERSE_ABSTENTION_PATTERNS = (
+    r"^(?:unknown|undetermined|unresolved|indeterminate)"
+    r"(?:\s+(?:answer|value|result|resolution))?[.!]?$",
+    r"^(?:the\s+)?(?:answer|value|result|resolution)\s+is\s+"
+    r"(?:unknown|undetermined|unresolved|indeterminate)[.!]?$",
+    r"^(?:conflict|conflicting|source\s+conflict|document\s+conflict|"
+    r"conflicting\s+(?:sources?|information|evidence|documents?|reports?))"
+    r"(?:\s+in\s+(?:the\s+)?(?:sources?|documents?|reports?))?[.!]?$",
+    r"^(?:the\s+)?(?:sources?|documents?|reports?)\s+"
+    r"(?:are\s+)?(?:in\s+)?conflict(?:ing)?[.!]?$",
+)
+
 
 def _norm(value):
     return str(value).lower().replace(",", "").strip()
@@ -234,10 +251,11 @@ def score_response(row):
     mentions_conflict = int(any(
         re.search(pattern, answer) for pattern in CONFLICT_MENTION_PATTERNS
     ))
-    # A bare "indeterminate ..." answer is the model choosing the indeterminate
-    # option offered by the prompt -- a deliberate abstention, not an OTHER.
+    # A terse non-answer is the model choosing the indeterminate resolution
+    # offered by the prompt -- a deliberate abstention, not an OTHER.
     abstained = int(
         bool(re.match(r"^\s*indeterminate\b", answer))
+        or any(re.search(pattern, answer) for pattern in TERSE_ABSTENTION_PATTERNS)
         or any(re.search(pattern, answer) for pattern in ABSTENTION_PATTERNS)
     )
 
@@ -435,6 +453,12 @@ def load_results(csv_paths=None, strategy=None, exclude=None, arm=None):
         # only primary answer calls; token_report.py still counts both phases.
         if "call_phase" in df.columns:
             df = df[df["call_phase"].isin(["", "primary"])].copy()
+        # Format-retry attempts remain in the raw log for transparency and
+        # token accounting, but only the final record for each planned trial
+        # is an experimental observation. Legacy CSVs lack this column.
+        if "trial_record" in df.columns:
+            trial_record = pd.to_numeric(df["trial_record"], errors="coerce")
+            df = df[trial_record.eq(1)].copy()
         df["category"] = df.apply(classify, axis=1)
     if exclude:
         before = len(df)

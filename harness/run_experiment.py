@@ -110,6 +110,8 @@ GEMINI_MAX_OUTPUT_TOKENS = 2048
 OPENROUTER_DEFAULT_MAX_TOKENS = 2048
 OPENROUTER_CLAUDE_MAX_TOKENS = 4096
 MAX_RETRIES = 4  # exponential-backoff attempts on 429/5xx/connection errors
+DEFAULT_FORMAT_RETRIES = 2  # extra byte-identical calls after malformed output
+FATAL_HTTP_STATUS_CODES = {400, 401, 402, 403, 404, 422}
 
 # Reasoning-depth controls, one per model, verified against each SDK/API before
 # use rather than assumed (see UPDATES.md for how each was checked):
@@ -250,7 +252,8 @@ CSV_FIELDS = [
     "run_id", "protocol_version", "dataset_sha256", "run_seed",
     "layout_index", "timestamp_utc", "entity_id", "entity_name", "domain",
     "attribute", "ratio", "n_docs",
-    "call_phase", "trial_index", "strategy", "prompt_hash", "doc_positions",
+    "call_phase", "trial_index", "attempt_index", "attempt_status",
+    "trial_record", "strategy", "prompt_hash", "doc_positions",
     "confidence_condition", "distribution_request_assigned",
     "inline_confidence_requested", "model_slot",
     "model_provider", "model_id", "returned_model_id", "question",
@@ -273,7 +276,7 @@ CONDITION_FIELDS = [
     "model_slot", "model_provider", "model_id",
     "returned_model_ids", "question", "majority_value", "minority_value",
     "claim_a_value", "claim_b_value", "claim_a_side", "claim_b_side",
-    "response_categories",
+    "response_categories", "primary_api_attempts", "primary_format_retries",
     "n_samples", "n_scored", "n_primary_errors", "n_primary_format_errors",
     "n_valid_distributions", "distribution_compliance", "modal_category", "modal_count",
     "conflict_mention_count", "conflict_mention_rate", "abstention_count",
@@ -285,6 +288,7 @@ CONDITION_FIELDS = [
     "mean_p_sources_conflict", "confidence_best_resolution",
     "posthoc_raw_response", "primary_reasoning_tokens", "posthoc_reasoning_tokens",
     "reasoning_tokens", "posthoc_status", "posthoc_skipped",
+    "posthoc_api_attempts", "posthoc_format_retries",
     "posthoc_prompt_tokens", "posthoc_completion_tokens", "posthoc_error",
 ]
 
@@ -574,6 +578,83 @@ def parse_posthoc_response(raw):
         return "", str(exc)
 
 
+def parse_posthoc_attempt(raw):
+    """Return post-hoc parsing in the same shape used by retry handling."""
+    probability, format_error = parse_posthoc_response(raw)
+    return {
+        "confidence_best_resolution": probability,
+        "format_error": format_error,
+    }
+
+
+def exception_status_code(exc):
+    """Best-effort HTTP status extraction across Google/OpenAI SDK errors."""
+    for source in (exc, getattr(exc, "response", None)):
+        if source is None:
+            continue
+        for field in ("status_code", "code"):
+            value = getattr(source, field, None)
+            if value is None:
+                continue
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                pass
+    match = re.search(r"(?:error\s+code|status(?:_code)?)\D+(\d{3})", str(exc), re.I)
+    return int(match.group(1)) if match else None
+
+
+def is_fatal_collection_error(exc):
+    """True for permanent request/account errors that retries cannot repair."""
+    return exception_status_code(exc) in FATAL_HTTP_STATUS_CODES
+
+
+def iter_response_attempts(call_fn, prompt, entity, phase, ask_inline,
+                           parse_fn, max_format_retries=DEFAULT_FORMAT_RETRIES,
+                           first_future=None):
+    """Yield every API attempt until output parses or retries are exhausted.
+
+    Network/rate-limit retries remain inside each provider caller. This layer
+    handles only successful API responses whose *content* violates the output
+    contract. Every retry receives the exact same prompt and call arguments.
+    """
+    if max_format_retries < 0:
+        raise ValueError("max_format_retries must be nonnegative")
+    for attempt_index in range(1, max_format_retries + 2):
+        try:
+            result = (
+                first_future.result()
+                if attempt_index == 1 and first_future is not None
+                else call_fn(prompt, entity, phase, ask_inline)
+            )
+            raw, ptok, ctok, rtok, returned_model = result
+            parsed = parse_fn(raw)
+            yield {
+                "attempt_index": attempt_index,
+                "raw": raw,
+                "prompt_tokens": ptok,
+                "completion_tokens": ctok,
+                "reasoning_tokens": rtok,
+                "returned_model": returned_model,
+                "parsed": parsed,
+                "exception": None,
+            }
+            if not parsed.get("format_error"):
+                return
+        except Exception as exc:
+            yield {
+                "attempt_index": attempt_index,
+                "raw": "",
+                "prompt_tokens": "",
+                "completion_tokens": "",
+                "reasoning_tokens": "",
+                "returned_model": "",
+                "parsed": {},
+                "exception": exc,
+            }
+            return
+
+
 def parse_response(raw):
     """Backward-compatible parser returning ``(answer, confidence)``."""
     parsed = parse_primary_response(raw, expect_inline_confidence=False)
@@ -714,6 +795,88 @@ def summarize_repeats(rows):
         "self_consistency_all_samples": modal_count / len(rows),
         "modal_tie": int(is_tie),
         "representative": representative,
+    }
+
+
+def validate_completion_gate(condition_rows, expected_by_model, expected_samples):
+    """Require scientifically valid conditions, not merely complete row coverage."""
+    failures = []
+    observed_by_model = Counter()
+    valid_by_model = Counter()
+    seen_conditions = set()
+
+    def integer(row, field):
+        try:
+            value = float(row.get(field, ""))
+        except (TypeError, ValueError):
+            return None
+        return int(value) if value.is_integer() else None
+
+    for row in condition_rows:
+        slot = str(row.get("model_slot", ""))
+        observed_by_model[slot] += 1
+        key = (row.get("entity_id"), row.get("ratio"), slot)
+        issues = []
+        if key in seen_conditions:
+            issues.append("duplicate condition key")
+        seen_conditions.add(key)
+
+        if integer(row, "n_samples") != expected_samples:
+            issues.append(f"n_samples != {expected_samples}")
+        if integer(row, "n_scored") != expected_samples:
+            issues.append(f"n_scored != {expected_samples}")
+        if integer(row, "n_primary_errors") != 0:
+            issues.append("primary API/routing error")
+        if integer(row, "n_primary_format_errors") != 0:
+            issues.append("unresolved primary format error")
+        if integer(row, "inline_confidence_requested") == 1:
+            if integer(row, "n_valid_distributions") != expected_samples:
+                issues.append("not every primary sample has a valid distribution")
+
+        modal_category = str(row.get("modal_category", "")).upper()
+        posthoc_status = str(row.get("posthoc_status", "")).lower()
+        expected_posthoc_status = (
+            "skipped_modal_tie" if modal_category == "TIE" else "completed"
+        )
+        if posthoc_status != expected_posthoc_status:
+            issues.append(
+                f"posthoc_status={posthoc_status or 'blank'}; expected "
+                f"{expected_posthoc_status}"
+            )
+        expected_skip = 1 if expected_posthoc_status == "skipped_modal_tie" else 0
+        if integer(row, "posthoc_skipped") != expected_skip:
+            issues.append("posthoc_skipped disagrees with valid disposition")
+        if str(row.get("posthoc_error", "")).strip():
+            issues.append("post-hoc error present")
+
+        if issues:
+            failures.append({"key": key, "issues": issues})
+        else:
+            valid_by_model[slot] += 1
+
+    expected_total = sum(expected_by_model.values())
+    if len(condition_rows) != expected_total:
+        failures.append({
+            "key": ("RUN", "", ""),
+            "issues": [
+                f"condition row count {len(condition_rows)} != expected {expected_total}"
+            ],
+        })
+    for slot, expected in expected_by_model.items():
+        if observed_by_model[slot] != expected:
+            failures.append({
+                "key": ("MODEL", "", slot),
+                "issues": [
+                    f"observed {observed_by_model[slot]} conditions != expected {expected}"
+                ],
+            })
+
+    return {
+        "passed": not failures,
+        "failures": failures,
+        "observed_by_model": dict(observed_by_model),
+        "valid_by_model": dict(valid_by_model),
+        "expected_by_model": dict(expected_by_model),
     }
 
 
@@ -980,6 +1143,10 @@ def main():
         help="identical answer samples per model/condition (production default: 3)",
     )
     ap.add_argument(
+        "--format-retries", type=int, default=DEFAULT_FORMAT_RETRIES,
+        help="extra byte-identical attempts after malformed output (default: 2)",
+    )
+    ap.add_argument(
         "--no-inline-confidence-entities", type=int,
         default=DEFAULT_NO_INLINE_CONFIDENCE_ENTITIES,
         help="deterministic entity arm omitting conflict-ratio distributions "
@@ -1003,6 +1170,8 @@ def main():
 
     if args.trials < 1:
         ap.error("--trials must be at least 1")
+    if args.format_retries < 0:
+        ap.error("--format-retries must be nonnegative")
     if args.temperature <= 0:
         ap.error("--temperature must be greater than zero for repeated sampling")
     if not args.models:
@@ -1013,6 +1182,11 @@ def main():
             f"{DEFAULT_SAMPLES_PER_CONDITION} identical samples; this run uses "
             f"{args.trials}."
         )
+        if not args.mock:
+            print(
+                "WARNING: a live non-production sample count cannot pass the "
+                "final completion gate."
+            )
 
     dataset = json.loads(DATA_PATH.read_text(encoding="utf-8"))
     try:
@@ -1215,13 +1389,22 @@ def main():
     planned_primary = len(entities) * len(ratios) * len(callers) * args.trials
     planned_posthoc_max = len(entities) * len(ratios) * len(callers)
     planned_total = planned_primary + planned_posthoc_max
-    done = 0
-    primary_done = 0
-    posthoc_done = 0
+    done = 0  # physical API/mock attempts, including format retries
+    primary_done = 0  # physical primary attempts
+    primary_trials_completed = 0
+    posthoc_done = 0  # physical post-hoc attempts
+    posthoc_conditions_completed = 0
+    posthoc_conditions_failed = 0
     posthoc_skipped = 0
+    posthoc_genuine_skips = 0
+    posthoc_failure_skips = 0
     hard_errors = 0
     primary_errors = 0
-    primary_format_errors = 0
+    primary_format_failures = 0
+    primary_format_retries = 0
+    unresolved_primary_format_errors = 0
+    posthoc_format_failures = 0
+    posthoc_format_retries = 0
     distributions_expected = 0
     valid_distributions = 0
     usage = defaultdict(lambda: [0, 0, 0])
@@ -1255,6 +1438,9 @@ def main():
             "n_docs": len(entity["documents"][ratio]),
             "call_phase": phase,
             "trial_index": trial_index,
+            "attempt_index": "",
+            "attempt_status": "",
+            "trial_record": 0,
             "strategy": args.strategy,
             "prompt_hash": prompt_digest(prompt),
             "doc_positions": json.dumps(doc_positions),
@@ -1332,6 +1518,8 @@ def main():
                     ask_inline_confidence=ask_inline, return_core=True,
                 )
                 repeated = {slot: [] for slot in callers}
+                primary_attempt_counts = {slot: 0 for slot in callers}
+                primary_retry_counts = {slot: 0 for slot in callers}
 
                 for trial_index in range(1, args.trials + 1):
                     futures = {
@@ -1341,72 +1529,138 @@ def main():
                         for slot, spec in callers.items()
                     }
                     for slot, spec in callers.items():
-                        row = base_raw_row(
-                            entity, ratio, prompt, doc_positions,
-                            confidence_condition, distribution_assigned,
-                            ask_inline, slot, "primary", trial_index,
+                        final_row = None
+                        fatal_message = ""
+                        parse_fn = lambda raw: parse_primary_response(
+                            raw, ask_inline, claim_mapping=claim_mapping
                         )
-                        try:
-                            raw, ptok, ctok, rtok, returned_model = (
-                                futures[slot].result()
+                        attempts = iter_response_attempts(
+                            spec["call"], prompt, entity, "primary", ask_inline,
+                            parse_fn, max_format_retries=args.format_retries,
+                            first_future=futures[slot],
+                        )
+                        for attempt in attempts:
+                            row = base_raw_row(
+                                entity, ratio, prompt, doc_positions,
+                                confidence_condition, distribution_assigned,
+                                ask_inline, slot, "primary", trial_index,
                             )
-                            row.update(
-                                raw_response=raw, prompt_tokens=ptok,
-                                completion_tokens=ctok,
-                                reasoning_tokens=rtok,
-                                returned_model_id=returned_model,
-                            )
-                            record_usage(spec["model_id"], ptok, ctok)
-                            if not model_family_matches(slot, returned_model):
-                                row["error"] = (
-                                    "model_mismatch: requested "
-                                    f"{spec['model_id']}, API returned {returned_model}"
+                            row["attempt_index"] = attempt["attempt_index"]
+                            exc = attempt["exception"]
+                            if exc is not None:
+                                row["error"] = f"{type(exc).__name__}: {exc}"
+                                if is_fatal_collection_error(exc):
+                                    fatal_message = row["error"]
+                            else:
+                                raw = attempt["raw"]
+                                ptok = attempt["prompt_tokens"]
+                                ctok = attempt["completion_tokens"]
+                                rtok = attempt["reasoning_tokens"]
+                                returned_model = attempt["returned_model"]
+                                parsed = attempt["parsed"]
+                                row.update(
+                                    raw_response=raw, prompt_tokens=ptok,
+                                    completion_tokens=ctok,
+                                    reasoning_tokens=rtok,
+                                    returned_model_id=returned_model,
+                                    parsed_answer=parsed["answer"],
+                                    p_claim_a=parsed["p_claim_a"],
+                                    p_claim_b=parsed["p_claim_b"],
+                                    p_indeterminate=parsed["p_indeterminate"],
+                                    p_sources_conflict=parsed["p_sources_conflict"],
+                                    p_majority=parsed["p_majority"],
+                                    p_minority=parsed["p_minority"],
+                                    confidence_scale=(
+                                        "rich_distribution_0-100"
+                                        if parsed["p_claim_a"] != "" else ""
+                                    ),
+                                    format_error=parsed["format_error"],
                                 )
-                            parsed = parse_primary_response(
-                                raw, ask_inline, claim_mapping=claim_mapping
-                            )
+                                record_usage(spec["model_id"], ptok, ctok)
+                                if not model_family_matches(slot, returned_model):
+                                    row["error"] = (
+                                        "model_mismatch: requested "
+                                        f"{spec['model_id']}, API returned "
+                                        f"{returned_model}"
+                                    )
+                                    fatal_message = row["error"]
+
+                            score = score_primary_row(row)
                             row.update(
-                                parsed_answer=parsed["answer"],
-                                p_claim_a=parsed["p_claim_a"],
-                                p_claim_b=parsed["p_claim_b"],
-                                p_indeterminate=parsed["p_indeterminate"],
-                                p_sources_conflict=parsed["p_sources_conflict"],
-                                p_majority=parsed["p_majority"],
-                                p_minority=parsed["p_minority"],
-                                confidence_scale=(
-                                    "rich_distribution_0-100"
-                                    if parsed["p_claim_a"] != "" else ""
-                                ),
-                                format_error=parsed["format_error"],
+                                response_category=score["category"],
+                                mentions_conflict=score["mentions_conflict"],
+                                abstained=score["abstained"],
                             )
-                        except Exception as exc:
-                            row["error"] = f"{type(exc).__name__}: {exc}"
-                        score = score_primary_row(row)
-                        row.update(
-                            response_category=score["category"],
-                            mentions_conflict=score["mentions_conflict"],
-                            abstained=score["abstained"],
-                        )
-                        if row["error"]:
-                            hard_errors += 1
-                            primary_errors += 1
-                        if row["format_error"]:
-                            primary_format_errors += 1
+                            can_retry_format = bool(
+                                row["format_error"]
+                                and attempt["attempt_index"] <= args.format_retries
+                                and not row["error"]
+                            )
+                            if fatal_message:
+                                row["attempt_status"] = "fatal_error"
+                                row["trial_record"] = 1
+                            elif row["error"]:
+                                row["attempt_status"] = "api_error"
+                                row["trial_record"] = 1
+                            elif can_retry_format:
+                                row["attempt_status"] = "format_retry"
+                                row["trial_record"] = 0
+                            elif row["format_error"]:
+                                row["attempt_status"] = "format_exhausted"
+                                row["trial_record"] = 1
+                            else:
+                                row["attempt_status"] = "accepted"
+                                row["trial_record"] = 1
+
+                            primary_attempt_counts[slot] += 1
+                            if row["error"]:
+                                hard_errors += 1
+                            if row["format_error"]:
+                                primary_format_failures += 1
+                            if can_retry_format:
+                                primary_format_retries += 1
+                                primary_retry_counts[slot] += 1
+                            if row["trial_record"] and row["error"]:
+                                primary_errors += 1
+                            if (
+                                row["trial_record"]
+                                and row["format_error"]
+                                and not row["error"]
+                            ):
+                                unresolved_primary_format_errors += 1
+
+                            raw_writer.writerow(row)
+                            raw_file.flush()
+                            done += 1
+                            primary_done += 1
+                            print(
+                                f"[call {done}; planned "
+                                f"{primary_trials_completed + posthoc_conditions_completed + posthoc_conditions_failed + posthoc_skipped}/"
+                                f"{planned_total}] {entity['entity_id']} {ratio} "
+                                f"sample {trial_index} {slot} attempt "
+                                f"{attempt['attempt_index']} ({spec['model_id']}) "
+                                f"{row['attempt_status']}"
+                            )
+                            if row["trial_record"]:
+                                final_row = row
+                            if fatal_message:
+                                raise SystemExit(
+                                    "FATAL collection error; partial CSVs were "
+                                    f"flushed. {slot} {entity['entity_id']} "
+                                    f"{ratio}: {fatal_message}"
+                                )
+
+                        if final_row is None:
+                            raise RuntimeError(
+                                f"no final trial record for {slot} "
+                                f"{entity['entity_id']} {ratio} trial {trial_index}"
+                            )
+                        repeated[slot].append(final_row)
+                        primary_trials_completed += 1
                         if ask_inline:
                             distributions_expected += 1
-                            if not row["error"] and not row["format_error"]:
+                            if not final_row["error"] and not final_row["format_error"]:
                                 valid_distributions += 1
-                        raw_writer.writerow(row)
-                        raw_file.flush()
-                        repeated[slot].append(row)
-                        done += 1
-                        primary_done += 1
-                        print(
-                            f"[{done}/{planned_total}] {entity['entity_id']} "
-                            f"{ratio} sample {trial_index} {slot} "
-                            f"({spec['model_id']})"
-                            f"{' ERROR' if row['error'] else ''}"
-                        )
 
                 summaries = {
                     slot: summarize_repeats(rows)
@@ -1441,78 +1695,147 @@ def main():
                     posthoc_error = ""
                     posthoc_status = ""
                     was_posthoc_skipped = 0
+                    posthoc_attempt_count = 0
+                    posthoc_retry_count = 0
                     if slot not in posthoc_futures:
                         posthoc_skipped += 1
                         was_posthoc_skipped = 1
                         if summary["modal_category"] == "TIE":
                             posthoc_status = "skipped_modal_tie"
+                            posthoc_genuine_skips += 1
                         elif summary["modal_category"] == "UNSCORED":
                             posthoc_status = "skipped_all_unscored"
+                            posthoc_failure_skips += 1
                         else:
                             posthoc_status = "skipped_no_modal_answer"
+                            posthoc_failure_skips += 1
                     else:
                         posthoc_prompt = posthoc_prompts[slot]
-                        row = base_raw_row(
-                            entity, ratio, posthoc_prompt, doc_positions,
-                            confidence_condition, distribution_assigned,
-                            ask_inline, slot, "posthoc",
+                        final_posthoc_row = None
+                        fatal_message = ""
+                        attempts = iter_response_attempts(
+                            spec["call"], posthoc_prompt, entity, "posthoc", False,
+                            parse_posthoc_attempt,
+                            max_format_retries=args.format_retries,
+                            first_future=posthoc_futures[slot],
                         )
-                        try:
-                            (
-                                posthoc_raw, posthoc_ptok, posthoc_ctok,
-                                posthoc_rtok, returned_model,
-                            ) = posthoc_futures[slot].result()
-                            row.update(
-                                raw_response=posthoc_raw,
-                                prompt_tokens=posthoc_ptok,
-                                completion_tokens=posthoc_ctok,
-                                reasoning_tokens=posthoc_rtok,
-                                returned_model_id=returned_model,
+                        for attempt in attempts:
+                            row = base_raw_row(
+                                entity, ratio, posthoc_prompt, doc_positions,
+                                confidence_condition, distribution_assigned,
+                                ask_inline, slot, "posthoc",
                             )
-                            posthoc_returned_model = returned_model
-                            record_usage(
-                                spec["model_id"], posthoc_ptok, posthoc_ctok
-                            )
-                            if not model_family_matches(slot, returned_model):
-                                row["error"] = (
-                                    "model_mismatch: requested "
-                                    f"{spec['model_id']}, API returned {returned_model}"
-                                )
-                            probability, format_error = parse_posthoc_response(
-                                posthoc_raw
-                            )
-                            row.update(
-                                confidence_best_resolution=probability,
-                                confidence_scale=(
-                                    "0-100_best_resolution"
-                                    if probability != "" else ""
-                                ),
-                                format_error=format_error,
-                            )
-                            if row["error"]:
-                                posthoc_error = row["error"]
-                                posthoc_status = "error"
-                            elif format_error:
-                                posthoc_error = format_error
-                                posthoc_status = "format_error"
+                            row["attempt_index"] = attempt["attempt_index"]
+                            exc = attempt["exception"]
+                            if exc is not None:
+                                row["error"] = f"{type(exc).__name__}: {exc}"
+                                if is_fatal_collection_error(exc):
+                                    fatal_message = row["error"]
                             else:
-                                confidence_best_resolution = probability
-                                posthoc_status = "completed"
-                        except Exception as exc:
-                            row["error"] = f"{type(exc).__name__}: {exc}"
-                            posthoc_error = row["error"]
+                                posthoc_raw_attempt = attempt["raw"]
+                                ptok = attempt["prompt_tokens"]
+                                ctok = attempt["completion_tokens"]
+                                rtok = attempt["reasoning_tokens"]
+                                returned_model = attempt["returned_model"]
+                                parsed = attempt["parsed"]
+                                probability = parsed["confidence_best_resolution"]
+                                row.update(
+                                    raw_response=posthoc_raw_attempt,
+                                    prompt_tokens=ptok,
+                                    completion_tokens=ctok,
+                                    reasoning_tokens=rtok,
+                                    returned_model_id=returned_model,
+                                    confidence_best_resolution=probability,
+                                    confidence_scale=(
+                                        "0-100_best_resolution"
+                                        if probability != "" else ""
+                                    ),
+                                    format_error=parsed["format_error"],
+                                )
+                                record_usage(spec["model_id"], ptok, ctok)
+                                if not model_family_matches(slot, returned_model):
+                                    row["error"] = (
+                                        "model_mismatch: requested "
+                                        f"{spec['model_id']}, API returned "
+                                        f"{returned_model}"
+                                    )
+                                    fatal_message = row["error"]
+
+                            can_retry_format = bool(
+                                row["format_error"]
+                                and attempt["attempt_index"] <= args.format_retries
+                                and not row["error"]
+                            )
+                            if fatal_message:
+                                row["attempt_status"] = "fatal_error"
+                                row["trial_record"] = 1
+                            elif row["error"]:
+                                row["attempt_status"] = "api_error"
+                                row["trial_record"] = 1
+                            elif can_retry_format:
+                                row["attempt_status"] = "format_retry"
+                                row["trial_record"] = 0
+                            elif row["format_error"]:
+                                row["attempt_status"] = "format_exhausted"
+                                row["trial_record"] = 1
+                            else:
+                                row["attempt_status"] = "accepted"
+                                row["trial_record"] = 1
+
+                            posthoc_attempt_count += 1
+                            if row["error"]:
+                                hard_errors += 1
+                            if row["format_error"]:
+                                posthoc_format_failures += 1
+                            if can_retry_format:
+                                posthoc_format_retries += 1
+                                posthoc_retry_count += 1
+                            raw_writer.writerow(row)
+                            raw_file.flush()
+                            done += 1
+                            posthoc_done += 1
+                            print(
+                                f"[call {done}; planned "
+                                f"{primary_trials_completed + posthoc_conditions_completed + posthoc_conditions_failed}/"
+                                f"{planned_total}] {entity['entity_id']} {ratio} "
+                                f"posthoc {slot} attempt {attempt['attempt_index']} "
+                                f"({spec['model_id']}) {row['attempt_status']}"
+                            )
+                            if row["trial_record"]:
+                                final_posthoc_row = row
+                            if fatal_message:
+                                raise SystemExit(
+                                    "FATAL collection error; partial CSVs were "
+                                    f"flushed. {slot} {entity['entity_id']} "
+                                    f"{ratio} posthoc: {fatal_message}"
+                                )
+
+                        if final_posthoc_row is None:
+                            raise RuntimeError(
+                                f"no final post-hoc record for {slot} "
+                                f"{entity['entity_id']} {ratio}"
+                            )
+                        posthoc_raw = final_posthoc_row["raw_response"]
+                        posthoc_ptok = final_posthoc_row["prompt_tokens"]
+                        posthoc_ctok = final_posthoc_row["completion_tokens"]
+                        posthoc_rtok = final_posthoc_row["reasoning_tokens"]
+                        posthoc_returned_model = final_posthoc_row[
+                            "returned_model_id"
+                        ]
+                        if final_posthoc_row["error"]:
+                            posthoc_error = final_posthoc_row["error"]
                             posthoc_status = "error"
-                        if row["error"]:
-                            hard_errors += 1
-                        raw_writer.writerow(row)
-                        raw_file.flush()
-                        done += 1
-                        posthoc_done += 1
-                        print(
-                            f"[{done}/{planned_total}] {entity['entity_id']} "
-                            f"{ratio} posthoc {slot} ({spec['model_id']})"
-                            f"{' ERROR' if posthoc_error else ''}"
-                        )
+                            posthoc_conditions_failed += 1
+                        elif final_posthoc_row["format_error"]:
+                            posthoc_error = final_posthoc_row["format_error"]
+                            posthoc_status = "format_error"
+                            posthoc_conditions_failed += 1
+                        else:
+                            confidence_best_resolution = final_posthoc_row[
+                                "confidence_best_resolution"
+                            ]
+                            posthoc_status = "completed"
+                            posthoc_conditions_completed += 1
 
                     distributions = [
                         {
@@ -1613,6 +1936,8 @@ def main():
                             claim_mapping["claim_b_side"] if claim_mapping else ""
                         ),
                         "response_categories": json.dumps(summary["categories"]),
+                        "primary_api_attempts": primary_attempt_counts[slot],
+                        "primary_format_retries": primary_retry_counts[slot],
                         "n_samples": len(repeated[slot]),
                         "n_scored": summary["n_scored"],
                         "n_primary_errors": n_primary_errors,
@@ -1660,6 +1985,8 @@ def main():
                         ),
                         "posthoc_status": posthoc_status,
                         "posthoc_skipped": was_posthoc_skipped,
+                        "posthoc_api_attempts": posthoc_attempt_count,
+                        "posthoc_format_retries": posthoc_retry_count,
                         "posthoc_prompt_tokens": posthoc_ptok,
                         "posthoc_completion_tokens": posthoc_ctok,
                         "posthoc_error": posthoc_error,
@@ -1669,22 +1996,31 @@ def main():
                     condition_file.flush()
 
 
-    print(f"\nDone. {done} live/mock API calls completed.")
-    print(f"Primary calls: {primary_done}/{planned_primary} completed")
+    print(f"\nCollection loop ended after {done} physical live/mock API attempts.")
     print(
-        f"Post-hoc conditions: {posthoc_done} calls completed + "
-        f"{posthoc_skipped} intentionally skipped = "
-        f"{posthoc_done + posthoc_skipped}/{planned_posthoc_max} accounted for"
+        f"Primary trial records written: {primary_trials_completed}/"
+        f"{planned_primary} via {primary_done} API attempts; validity is checked below"
     )
     print(
-        f"Maximum call plan accounted for: {done} actual + "
-        f"{posthoc_skipped} intentional skips = {done + posthoc_skipped}/"
-        f"{planned_total}"
+        f"Post-hoc conditions: {posthoc_conditions_completed} completed + "
+        f"{posthoc_conditions_failed} failed + "
+        f"{posthoc_genuine_skips} genuine modal-tie skips + "
+        f"{posthoc_failure_skips} failure-driven skips = "
+        f"{posthoc_conditions_completed + posthoc_conditions_failed + posthoc_skipped}/"
+        f"{planned_posthoc_max} dispositions via {posthoc_done} API attempts"
+    )
+    print(
+        "Row coverage is not treated as proof that collection is complete or valid."
     )
     print(
         f"Errors: {hard_errors} hard/model-routing total; "
         f"{primary_errors} primary API/routing; "
-        f"{primary_format_errors} primary format"
+        f"{unresolved_primary_format_errors} unresolved primary format"
+    )
+    print(
+        f"Format recovery: {primary_format_retries} primary + "
+        f"{posthoc_format_retries} post-hoc retries from "
+        f"{primary_format_failures + posthoc_format_failures} malformed attempts"
     )
     if distributions_expected:
         print(
@@ -1697,8 +2033,57 @@ def main():
     print(f"Raw call log: {out_path}")
     print(f"Condition results: {condition_path}")
 
+    expected_by_model = {
+        slot: len(entities) * len(ratios) for slot in callers
+    }
+    required_valid_samples = (
+        args.trials if args.mock else DEFAULT_SAMPLES_PER_CONDITION
+    )
+    completion = validate_completion_gate(
+        condition_rows, expected_by_model, required_valid_samples
+    )
+    print("\n=== completion gate ===")
+    for slot in callers:
+        expected = completion["expected_by_model"][slot]
+        observed = completion["observed_by_model"].get(slot, 0)
+        valid = completion["valid_by_model"].get(slot, 0)
+        print(
+            f"  {slot:<9} valid={valid}/{expected}; "
+            f"condition rows={observed}/{expected}"
+        )
+    if completion["passed"]:
+        print(
+            "PASS: every condition has the required valid primary samples and a "
+            "valid post-hoc disposition."
+        )
+    else:
+        print(
+            f"FAIL: {len(completion['failures'])} condition/run validation "
+            "failure(s). This run is not valid project evidence.",
+            file=sys.stderr,
+        )
+        for failure in completion["failures"][:10]:
+            entity_id, ratio, slot = failure["key"]
+            print(
+                f"  {entity_id} {ratio} {slot}: "
+                + "; ".join(failure["issues"]),
+                file=sys.stderr,
+            )
+        if len(completion["failures"]) > 10:
+            print(
+                f"  ... {len(completion['failures']) - 10} more failure(s)",
+                file=sys.stderr,
+            )
+        print(
+            "Exit status is nonzero; do not start a chained CoT run.",
+            file=sys.stderr,
+        )
+
     summarize_usage(usage)
+    if not completion["passed"]:
+        raise SystemExit(1)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -68,6 +68,10 @@ BASE_REQUIRED_COLUMNS = {
     "n_scored",
     "n_primary_errors",
     "n_primary_format_errors",
+    "primary_api_attempts",
+    "primary_format_retries",
+    "posthoc_api_attempts",
+    "posthoc_format_retries",
     "n_valid_distributions",
     "self_consistency",
     "self_consistency_all_samples",
@@ -75,6 +79,7 @@ BASE_REQUIRED_COLUMNS = {
     "inline_distributions",
     "posthoc_status",
     "posthoc_skipped",
+    "posthoc_error",
 }
 PROVENANCE_COLUMNS = {"protocol_version", "dataset_sha256"}
 
@@ -154,18 +159,6 @@ def current_dataset_metadata() -> dict:
     }
 
 
-def _count_inline_distributions(value) -> int:
-    if pd.isna(value) or str(value).strip() == "":
-        return 0
-    try:
-        parsed = json.loads(value) if isinstance(value, str) else value
-    except (json.JSONDecodeError, TypeError):
-        return -1
-    if not isinstance(parsed, list):
-        return -1
-    return sum(isinstance(item, dict) for item in parsed)
-
-
 def _parse_json_list(value) -> list | None:
     if pd.isna(value) or str(value).strip() == "":
         return None
@@ -174,6 +167,51 @@ def _parse_json_list(value) -> list | None:
     except (json.JSONDecodeError, TypeError):
         return None
     return parsed if isinstance(parsed, list) else None
+
+
+def _validated_inline_distributions(value) -> tuple[list[dict], list[str]]:
+    """Parse and independently validate stored condition-level distributions."""
+    parsed = _parse_json_list(value)
+    if parsed is None:
+        return [], ["inline_distributions is not a valid JSON list"]
+
+    valid: list[dict] = []
+    errors: list[str] = []
+    required = tuple(DISTRIBUTION_METRICS)
+    for index, item in enumerate(parsed):
+        if not isinstance(item, dict):
+            errors.append(f"distribution {index + 1} is not an object")
+            continue
+        normalized: dict[str, int] = {}
+        item_errors: list[str] = []
+        for field in required:
+            if field not in item:
+                item_errors.append(f"missing {field}")
+                continue
+            value = item[field]
+            if isinstance(value, bool):
+                item_errors.append(f"{field} is not numeric")
+                continue
+            try:
+                number = float(value)
+            except (TypeError, ValueError):
+                item_errors.append(f"{field} is not numeric")
+                continue
+            if not math.isfinite(number) or not number.is_integer() or not 0 <= number <= 100:
+                item_errors.append(f"{field} is not an integer from 0 to 100")
+                continue
+            normalized[field] = int(number)
+        resolution_fields = ("p_majority", "p_minority", "p_indeterminate")
+        if all(field in normalized for field in resolution_fields):
+            if sum(normalized[field] for field in resolution_fields) != 100:
+                item_errors.append(
+                    "p_majority + p_minority + p_indeterminate does not sum to 100"
+                )
+        if item_errors:
+            errors.append(f"distribution {index + 1}: " + "; ".join(item_errors))
+        else:
+            valid.append(normalized)
+    return valid, errors
 
 
 def _model_family_matches(slot: str, model_id: str) -> bool:
@@ -458,6 +496,53 @@ def load_condition_data(
                 "--audit-override",
             )
 
+    for attempt_column in (
+        "primary_api_attempts",
+        "primary_format_retries",
+        "posthoc_api_attempts",
+        "posthoc_format_retries",
+    ):
+        data[attempt_column] = pd.to_numeric(data[attempt_column], errors="coerce")
+        invalid_attempt_count = (
+            data[attempt_column].isna()
+            | data[attempt_column].lt(0)
+            | data[attempt_column].mod(1).ne(0)
+        )
+        if invalid_attempt_count.any():
+            _validation_issue(
+                state,
+                f"{int(invalid_attempt_count.sum())} rows have invalid "
+                f"{attempt_column} values.",
+                audit_override,
+                "--audit-override",
+            )
+
+    primary_attempt_mismatch = data["primary_api_attempts"].ne(
+        data["n_samples"] + data["primary_format_retries"]
+    )
+    if primary_attempt_mismatch.any():
+        _validation_issue(
+            state,
+            f"{int(primary_attempt_mismatch.sum())} rows disagree between primary "
+            "API attempts, scientific samples, and format retries.",
+            audit_override,
+            "--audit-override",
+        )
+
+    incomplete_primary = (
+        data["n_scored"].ne(data["n_samples"])
+        | data["n_primary_errors"].ne(0)
+        | data["n_primary_format_errors"].ne(0)
+    )
+    if incomplete_primary.any():
+        _validation_issue(
+            state,
+            f"{int(incomplete_primary.sum())} conditions do not contain the required "
+            "complete set of valid primary samples.",
+            allow_incomplete or audit_override,
+            "--allow-incomplete (or --audit-override)",
+        )
+
     data["posthoc_status"] = (
         data["posthoc_status"].fillna("").astype(str).str.strip().str.lower()
     )
@@ -494,6 +579,37 @@ def load_condition_data(
             f"{int(skip_mismatch.sum())} rows disagree between posthoc_status and posthoc_skipped.",
             audit_override,
             "--audit-override",
+        )
+    expected_posthoc_attempts = (
+        (~status_is_skip).astype(int) + data["posthoc_format_retries"]
+    )
+    posthoc_attempt_mismatch = data["posthoc_api_attempts"].ne(
+        expected_posthoc_attempts
+    )
+    if posthoc_attempt_mismatch.any():
+        _validation_issue(
+            state,
+            f"{int(posthoc_attempt_mismatch.sum())} rows disagree between post-hoc "
+            "status, API attempts, and format retries.",
+            audit_override,
+            "--audit-override",
+        )
+    expected_valid_posthoc = pd.Series("completed", index=data.index)
+    expected_valid_posthoc.loc[data["modal_category"].eq("TIE")] = (
+        "skipped_modal_tie"
+    )
+    invalid_posthoc_completion = data["posthoc_status"].ne(expected_valid_posthoc)
+    posthoc_error_present = (
+        data["posthoc_error"].fillna("").astype(str).str.strip().ne("")
+    )
+    if invalid_posthoc_completion.any() or posthoc_error_present.any():
+        _validation_issue(
+            state,
+            "Final completion gate failed for post-hoc dispositions: "
+            f"invalid_status={int(invalid_posthoc_completion.sum())}, "
+            f"error_present={int(posthoc_error_present.sum())}.",
+            allow_incomplete or audit_override,
+            "--allow-incomplete (or --audit-override)",
         )
 
     data["ratio"] = data["ratio"].astype(str).str.strip()
@@ -674,6 +790,7 @@ def load_condition_data(
         data.loc[invalid_consistency, "self_consistency"] = math.nan
 
     distribution_sources: dict[str, str | None] = {}
+    stored_distribution_metrics: dict[str, pd.Series] = {}
     for canonical, candidates in DISTRIBUTION_METRICS.items():
         source = _one_of(data.columns, candidates)
         distribution_sources[canonical] = source
@@ -686,8 +803,10 @@ def load_condition_data(
                 "--audit-override",
             )
             data[canonical] = math.nan
+            stored_distribution_metrics[canonical] = data[canonical].copy()
             continue
         data[canonical] = pd.to_numeric(data[source], errors="coerce")
+        stored_distribution_metrics[canonical] = data[canonical].copy()
         invalid_metric = data[canonical].notna() & ~data[canonical].between(0, 100)
         if invalid_metric.any():
             _validation_issue(
@@ -698,19 +817,70 @@ def load_condition_data(
             )
             data.loc[invalid_metric, canonical] = math.nan
 
-    data["inline_distribution_count"] = data["inline_distributions"].map(
-        _count_inline_distributions
+    validated_distributions = data["inline_distributions"].map(
+        _validated_inline_distributions
     )
-    malformed_distributions = data["inline_distribution_count"].lt(0)
-    if malformed_distributions.any():
+    data["inline_distribution_count"] = validated_distributions.map(
+        lambda result: len(result[0])
+    )
+    data["inline_distribution_validation_errors"] = validated_distributions.map(
+        lambda result: len(result[1])
+    )
+    invalid_distribution_rows = data["inline_distribution_validation_errors"].gt(0)
+    if invalid_distribution_rows.any():
+        examples = []
+        for index in data.index[invalid_distribution_rows][:3]:
+            examples.append(
+                {
+                    "entity_id": data.at[index, "entity_id"],
+                    "ratio": data.at[index, "ratio"],
+                    "model_slot": data.at[index, "model_slot"],
+                    "error": validated_distributions.at[index][1][0],
+                }
+            )
         _validation_issue(
             state,
-            f"{int(malformed_distributions.sum())} inline_distributions cells are "
-            "not valid JSON lists.",
+            f"{int(invalid_distribution_rows.sum())} rows contain invalid stored "
+            f"probability distributions; examples: {examples}.",
             audit_override,
             "--audit-override",
         )
-        data.loc[malformed_distributions, "inline_distribution_count"] = 0
+
+    reported_distribution_mismatch = data["n_valid_distributions"].ne(
+        data["inline_distribution_count"]
+    )
+    if reported_distribution_mismatch.any():
+        _validation_issue(
+            state,
+            f"{int(reported_distribution_mismatch.sum())} rows disagree between "
+            "n_valid_distributions and the independently validated stored list.",
+            audit_override,
+            "--audit-override",
+        )
+
+    for canonical in DISTRIBUTION_METRICS:
+        computed = validated_distributions.map(
+            lambda result, field=canonical: (
+                sum(item[field] for item in result[0]) / len(result[0])
+                if result[0] else math.nan
+            )
+        )
+        stored = stored_distribution_metrics[canonical]
+        mean_mismatch = (
+            computed.notna() & (stored.isna() | computed.sub(stored).abs().gt(0.011))
+        ) | (computed.isna() & stored.notna())
+        if mean_mismatch.any():
+            _validation_issue(
+                state,
+                f"{int(mean_mismatch.sum())} rows have a stored mean_{canonical} "
+                "that does not match the independently recomputed distribution mean.",
+                audit_override,
+                "--audit-override",
+            )
+        # Downstream probability analyses use only independently validated,
+        # recomputed values. Invalid audit rows therefore cannot contaminate
+        # reported confidence summaries even when --audit-override is active.
+        data[canonical] = computed
 
     metric_columns = list(DISTRIBUTION_METRICS)
     data["distribution_metrics_complete"] = data[metric_columns].notna().all(axis=1)
@@ -720,6 +890,7 @@ def load_condition_data(
         data.loc[exposed, "inline_distribution_count"].eq(
             data.loc[exposed, "n_samples"]
         )
+        & data.loc[exposed, "inline_distribution_validation_errors"].eq(0)
         & data.loc[exposed, "distribution_metrics_complete"]
     ).astype(float)
     data["distribution_missing"] = (
@@ -863,6 +1034,15 @@ def load_condition_data(
     data["primary_api_error_rate"] = data["n_primary_errors"] / data["n_samples"]
     data["primary_format_error_rate"] = (
         data["n_primary_format_errors"] / data["n_samples"]
+    )
+    data["diagnostic_primary_retried"] = data["primary_format_retries"].gt(0).astype(float)
+    data["diagnostic_posthoc_retried"] = data["posthoc_format_retries"].gt(0).astype(float)
+    data["primary_format_retry_rate"] = (
+        data["primary_format_retries"] / data["primary_api_attempts"]
+    )
+    data["posthoc_format_retry_rate"] = (
+        data["posthoc_format_retries"]
+        / data["posthoc_api_attempts"].replace(0, math.nan)
     )
     data["diagnostic_posthoc_failed"] = data["posthoc_status"].isin(
         {"error", "format_error"}
@@ -1046,6 +1226,45 @@ def distribution_compliance_table(
                 "n_missing_self_consistency": int(group["self_consistency"].isna().sum()),
                 "n_missing_posthoc_confidence": int(
                     group["subjective_posthoc_confidence"].isna().sum()
+                ),
+            }
+        )
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def retry_diagnostics_table(
+    data: pd.DataFrame, group_columns: Sequence[str]
+) -> pd.DataFrame:
+    """Aggregate physical format retries separately from scientific samples."""
+    rows: list[dict] = []
+    grouped = data.groupby(list(group_columns), dropna=False, observed=True)
+    for keys, group in grouped:
+        if not isinstance(keys, tuple):
+            keys = (keys,)
+        primary_attempts = int(group["primary_api_attempts"].sum())
+        primary_retries = int(group["primary_format_retries"].sum())
+        posthoc_attempts = int(group["posthoc_api_attempts"].sum())
+        posthoc_retries = int(group["posthoc_format_retries"].sum())
+        row = dict(zip(group_columns, keys))
+        row.update(
+            {
+                "n_conditions": int(len(group)),
+                "n_conditions_with_primary_retry": int(
+                    group["primary_format_retries"].gt(0).sum()
+                ),
+                "n_conditions_with_posthoc_retry": int(
+                    group["posthoc_format_retries"].gt(0).sum()
+                ),
+                "primary_api_attempts": primary_attempts,
+                "primary_format_retries": primary_retries,
+                "primary_retry_share_of_attempts": (
+                    primary_retries / primary_attempts if primary_attempts else math.nan
+                ),
+                "posthoc_api_attempts": posthoc_attempts,
+                "posthoc_format_retries": posthoc_retries,
+                "posthoc_retry_share_of_attempts": (
+                    posthoc_retries / posthoc_attempts if posthoc_attempts else math.nan
                 ),
             }
         )
@@ -1660,6 +1879,29 @@ def run_analyses(
     save(
         "rq4_distribution_compliance",
         distribution_compliance_table(rq4_data, rq4_groups),
+    )
+    save(
+        "rq4_retry_diagnostics",
+        retry_diagnostics_table(rq4_data, rq4_groups),
+    )
+    retry_sensitivity = []
+    for analysis_set, subset in (
+        ("all_complete_conditions", rq4_data),
+        (
+            "exclude_conditions_with_primary_format_retry",
+            rq4_data[rq4_data["primary_format_retries"].eq(0)].copy(),
+        ),
+    ):
+        effects = rq4_effect_table(subset, rq4_effect_groups, list(rq4_roles))
+        effects["analysis_set"] = analysis_set
+        effects["estimand_role"] = effects["outcome"].map(rq4_roles)
+        effects["n_conditions_excluded_for_primary_retry"] = int(
+            len(rq4_data) - len(subset)
+        )
+        retry_sensitivity.append(effects)
+    save(
+        "rq4_retry_sensitivity",
+        pd.concat(retry_sensitivity, ignore_index=True),
     )
     collection_error_metrics = [
         "primary_api_error_rate",

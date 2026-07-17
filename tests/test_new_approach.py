@@ -1,10 +1,15 @@
 """Offline regression tests for the finalized 75-entity protocol."""
 
+import csv
 import json
 import re
+import sys
+import tempfile
 import unittest
 from collections import Counter, defaultdict
+from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from harness.run_experiment import (
     CONDITION_FIELDS,
@@ -12,17 +17,23 @@ from harness.run_experiment import (
     DATA_PATH,
     DEFAULT_CLAUDE_MODEL,
     DEFAULT_DEEPSEEK_MODEL,
+    DEFAULT_FORMAT_RETRIES,
     DEFAULT_GEMINI_MODEL,
     OPENROUTER_ANTHROPIC_BUDGET_TOKENS,
     OPENROUTER_CLAUDE_MAX_TOKENS,
     OPENROUTER_DEFAULT_MAX_TOKENS,
     PROTOCOL_VERSION,
+    MockClient,
     build_posthoc_prompt,
     build_prompt,
     claim_label_mapping,
     dataset_sha256,
     document_side,
+    exception_status_code,
     gemini_usage_tokens,
+    is_fatal_collection_error,
+    iter_response_attempts,
+    main,
     model_family_matches,
     call_openrouter,
     openrouter_max_tokens,
@@ -31,8 +42,10 @@ from harness.run_experiment import (
     parse_primary_response,
     select_no_inline_confidence_ids,
     summarize_repeats,
+    validate_completion_gate,
     validate_protocol_dataset,
 )
+from visualizations.common import score_response
 
 
 class FinalizedProtocolTests(unittest.TestCase):
@@ -205,6 +218,248 @@ class FinalizedProtocolTests(unittest.TestCase):
         )
         self.assertIn("control response", control["format_error"])
 
+    def test_numeric_answers_parse_and_malformed_mixed_quotes_stay_detectable(self):
+        valid_examples = (
+            ('{"answer": 3200}', "3200"),
+            ('{"answer": 0}', "0"),
+            ('{"answer": 3.5}', "3.5"),
+            ('{"answer": "5760"}', "5760"),
+        )
+        for raw, expected in valid_examples:
+            with self.subTest(raw=raw):
+                parsed = parse_primary_response(raw, False)
+                self.assertEqual(parsed["answer"], expected)
+                self.assertEqual(parsed["format_error"], "")
+
+        # This is the exact structure seen in the interrupted CSV: it is not
+        # valid numeric JSON because only the closing quote is present. Keep it
+        # visible as a format failure so the retry layer can recover it rather
+        # than silently altering a model response.
+        malformed = parse_primary_response('{"answer": 3200"}', False)
+        self.assertEqual(malformed["answer"], "")
+        self.assertEqual(malformed["format_error"], "no valid JSON object")
+
+    def test_format_retries_are_identical_logged_attempts_not_extra_samples(self):
+        calls = []
+        responses = iter((
+            '{"answer": 3200"}',
+            '{"answer": 3200}',
+        ))
+
+        def call(prompt, entity, phase, ask_inline):
+            calls.append((prompt, entity, phase, ask_inline))
+            return next(responses), 10, 20, 5, DEFAULT_DEEPSEEK_MODEL
+
+        entity = {"entity_id": "E027"}
+        attempts = list(iter_response_attempts(
+            call,
+            "byte-identical prompt",
+            entity,
+            "primary",
+            False,
+            lambda raw: parse_primary_response(raw, False),
+            max_format_retries=DEFAULT_FORMAT_RETRIES,
+        ))
+        self.assertEqual(len(attempts), 2)
+        self.assertEqual(attempts[0]["attempt_index"], 1)
+        self.assertEqual(attempts[0]["parsed"]["format_error"], "no valid JSON object")
+        self.assertEqual(attempts[1]["attempt_index"], 2)
+        self.assertEqual(attempts[1]["parsed"]["answer"], "3200")
+        self.assertEqual(attempts[1]["parsed"]["format_error"], "")
+        self.assertEqual(calls, [calls[0], calls[0]])
+
+        exhausted = list(iter_response_attempts(
+            lambda *args: ("", 1, 1, 0, DEFAULT_DEEPSEEK_MODEL),
+            "same prompt",
+            entity,
+            "primary",
+            True,
+            lambda raw: parse_primary_response(raw, True),
+            max_format_retries=2,
+        ))
+        self.assertEqual(len(exhausted), 3)
+        self.assertTrue(all(
+            attempt["parsed"]["format_error"] for attempt in exhausted
+        ))
+
+    def test_permanent_http_errors_are_fatal_but_transient_codes_are_not(self):
+        class StatusError(Exception):
+            def __init__(self, status_code):
+                super().__init__(f"status {status_code}")
+                self.status_code = status_code
+
+        for code in (400, 401, 402, 403, 404, 422):
+            with self.subTest(code=code):
+                error = StatusError(code)
+                self.assertEqual(exception_status_code(error), code)
+                self.assertTrue(is_fatal_collection_error(error))
+        for code in (408, 409, 429, 500, 503):
+            with self.subTest(code=code):
+                self.assertFalse(is_fatal_collection_error(StatusError(code)))
+        self.assertTrue(is_fatal_collection_error(
+            RuntimeError("APIStatusError: Error code: 402 - insufficient credits")
+        ))
+
+    def test_mock_collection_logs_retries_without_extra_scientific_samples(self):
+        original_call = MockClient.call
+        failed_once = set()
+
+        def malformed_once(client, prompt, entity, strategy="standard",
+                           phase="primary", ask_inline_confidence=True):
+            key = phase
+            if key not in failed_once:
+                failed_once.add(key)
+                return "", 1, 1, 0, f"{client.provider}-MOCK"
+            return original_call(
+                client, prompt, entity, strategy, phase, ask_inline_confidence
+            )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            raw_path = Path(temp_dir) / "raw.csv"
+            condition_path = Path(temp_dir) / "conditions.csv"
+            argv = [
+                "run_experiment.py", "--mock", "--entity-ids", "E001",
+                "--ratios", "4:0", "--models", "gemini", "--trials", "1",
+                "--output", str(raw_path),
+                "--condition-output", str(condition_path),
+            ]
+            with patch.object(sys, "argv", argv), patch.object(
+                MockClient, "call", new=malformed_once
+            ):
+                main()
+
+            with raw_path.open(encoding="utf-8", newline="") as handle:
+                raw_rows = list(csv.DictReader(handle))
+            with condition_path.open(encoding="utf-8", newline="") as handle:
+                conditions = list(csv.DictReader(handle))
+
+        self.assertEqual(len(raw_rows), 4)
+        self.assertEqual(
+            [row["attempt_status"] for row in raw_rows],
+            ["format_retry", "accepted", "format_retry", "accepted"],
+        )
+        self.assertEqual(
+            [row["trial_record"] for row in raw_rows], ["0", "1", "0", "1"]
+        )
+        self.assertEqual(len(conditions), 1)
+        condition = conditions[0]
+        self.assertEqual(condition["n_samples"], "1")
+        self.assertEqual(condition["n_scored"], "1")
+        self.assertEqual(condition["primary_api_attempts"], "2")
+        self.assertEqual(condition["primary_format_retries"], "1")
+        self.assertEqual(condition["posthoc_api_attempts"], "2")
+        self.assertEqual(condition["posthoc_format_retries"], "1")
+
+    def test_mock_collection_flushes_and_aborts_on_first_fatal_error(self):
+        class CreditError(Exception):
+            status_code = 402
+
+        def no_credit(*args, **kwargs):
+            raise CreditError("insufficient credits")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            raw_path = Path(temp_dir) / "raw.csv"
+            condition_path = Path(temp_dir) / "conditions.csv"
+            argv = [
+                "run_experiment.py", "--mock", "--entity-ids", "E001",
+                "--ratios", "4:0", "--models", "gemini", "--trials", "1",
+                "--output", str(raw_path),
+                "--condition-output", str(condition_path),
+            ]
+            with patch.object(sys, "argv", argv), patch.object(
+                MockClient, "call", new=no_credit
+            ):
+                with self.assertRaises(SystemExit) as raised:
+                    main()
+            with raw_path.open(encoding="utf-8", newline="") as handle:
+                raw_rows = list(csv.DictReader(handle))
+            with condition_path.open(encoding="utf-8", newline="") as handle:
+                conditions = list(csv.DictReader(handle))
+
+        self.assertIn("FATAL collection error", str(raised.exception))
+        self.assertEqual(len(raw_rows), 1)
+        self.assertEqual(raw_rows[0]["attempt_status"], "fatal_error")
+        self.assertEqual(raw_rows[0]["trial_record"], "1")
+        self.assertIn("CreditError", raw_rows[0]["error"])
+        self.assertEqual(conditions, [])
+
+    def test_completion_gate_rejects_exhausted_primary_format_failure(self):
+        def always_blank(client, prompt, entity, strategy="standard",
+                         phase="primary", ask_inline_confidence=True):
+            return "", 1, 1, 0, f"{client.provider}-MOCK"
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            raw_path = Path(temp_dir) / "raw.csv"
+            condition_path = Path(temp_dir) / "conditions.csv"
+            argv = [
+                "run_experiment.py", "--mock", "--entity-ids", "E001",
+                "--ratios", "4:0", "--models", "gemini", "--trials", "1",
+                "--format-retries", "0", "--output", str(raw_path),
+                "--condition-output", str(condition_path),
+            ]
+            with patch.object(sys, "argv", argv), patch.object(
+                MockClient, "call", new=always_blank
+            ):
+                with self.assertRaises(SystemExit) as raised:
+                    main()
+            with condition_path.open(encoding="utf-8", newline="") as handle:
+                conditions = list(csv.DictReader(handle))
+
+        self.assertEqual(raised.exception.code, 1)
+        self.assertEqual(len(conditions), 1)
+        self.assertEqual(conditions[0]["n_scored"], "0")
+        self.assertEqual(conditions[0]["posthoc_status"], "skipped_all_unscored")
+
+    def test_completion_gate_accepts_only_genuine_modal_tie_skip(self):
+        row = {
+            "entity_id": "E001", "ratio": "2:2", "model_slot": "gemini",
+            "n_samples": 3, "n_scored": 3, "n_primary_errors": 0,
+            "n_primary_format_errors": 0, "inline_confidence_requested": 0,
+            "n_valid_distributions": 0, "modal_category": "TIE",
+            "posthoc_status": "skipped_modal_tie", "posthoc_skipped": 1,
+            "posthoc_error": "",
+        }
+        valid = validate_completion_gate([row], {"gemini": 1}, 3)
+        self.assertTrue(valid["passed"])
+
+        failed = dict(row)
+        failed["posthoc_status"] = "skipped_all_unscored"
+        invalid = validate_completion_gate([failed], {"gemini": 1}, 3)
+        self.assertFalse(invalid["passed"])
+
+    def test_completion_gate_rejects_failed_posthoc_as_failure_not_skip(self):
+        original_call = MockClient.call
+
+        def fail_posthoc(client, prompt, entity, strategy="standard",
+                         phase="primary", ask_inline_confidence=True):
+            if phase == "posthoc":
+                return "", 1, 1, 0, f"{client.provider}-MOCK"
+            return original_call(
+                client, prompt, entity, strategy, phase, ask_inline_confidence
+            )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            raw_path = Path(temp_dir) / "raw.csv"
+            condition_path = Path(temp_dir) / "conditions.csv"
+            argv = [
+                "run_experiment.py", "--mock", "--entity-ids", "E001",
+                "--ratios", "4:0", "--models", "gemini", "--trials", "1",
+                "--format-retries", "0", "--output", str(raw_path),
+                "--condition-output", str(condition_path),
+            ]
+            with patch.object(sys, "argv", argv), patch.object(
+                MockClient, "call", new=fail_posthoc
+            ):
+                with self.assertRaises(SystemExit) as raised:
+                    main()
+            with condition_path.open(encoding="utf-8", newline="") as handle:
+                conditions = list(csv.DictReader(handle))
+
+        self.assertEqual(raised.exception.code, 1)
+        self.assertEqual(conditions[0]["n_scored"], "1")
+        self.assertEqual(conditions[0]["posthoc_status"], "format_error")
+        self.assertEqual(conditions[0]["posthoc_skipped"], "0")
+
     def test_posthoc_is_truth_neutral_with_legacy_read_compatibility(self):
         prompt = build_posthoc_prompt("documents", "answer")
         self.assertIn("best resolution of the supplied documents", prompt)
@@ -246,6 +501,50 @@ class FinalizedProtocolTests(unittest.TestCase):
         self.assertEqual(failed["modal_category"], "UNSCORED")
         self.assertEqual(failed["n_scored"], 0)
         self.assertIsNone(failed["representative"])
+
+    def test_terse_conflict_and_unknown_answers_are_flagged_without_overreach(self):
+        base = {
+            "majority_value": "$25",
+            "minority_value": "$35",
+            "claim_a_value": "$25",
+            "claim_b_value": "$35",
+            "error": "",
+        }
+        for answer in (
+            "unknown",
+            "conflict",
+            "conflicting",
+            "conflicting sources",
+            "conflicting information",
+            "conflicting information in documents",
+            "the documents are in conflict",
+            "indeterminate due to conflicting evidence",
+        ):
+            with self.subTest(answer=answer):
+                scored = score_response({**base, "parsed_answer": answer})
+                self.assertEqual(scored["category"], "FLAG")
+                self.assertEqual(scored["abstained"], 1)
+
+        # Mentioning a contradiction is not itself abstention when the model
+        # still chooses one or both supplied values.
+        majority = score_response({
+            **base,
+            "parsed_answer": "The sources conflict, but the answer is $25.",
+        })
+        self.assertEqual(majority["category"], "MAJ")
+        self.assertEqual(majority["mentions_conflict"], 1)
+        self.assertEqual(majority["abstained"], 0)
+
+        compromise = score_response({
+            **base,
+            "parsed_answer": "The conflicting documents report $25 and $35.",
+        })
+        self.assertEqual(compromise["category"], "COM")
+        self.assertEqual(compromise["mentions_conflict"], 1)
+        self.assertEqual(compromise["abstained"], 0)
+
+        unrelated = score_response({**base, "parsed_answer": "Nocturne Holdings"})
+        self.assertEqual(unrelated["category"], "OTHER")
 
     def test_model_slots_and_families_cannot_be_silently_swapped(self):
         self.assertIn("gemini", DEFAULT_GEMINI_MODEL)
@@ -323,10 +622,14 @@ class FinalizedProtocolTests(unittest.TestCase):
             self.assertIn("inline_confidence_requested", schema)
         self.assertIn("mentions_conflict", CSV_FIELDS)
         self.assertIn("abstained", CSV_FIELDS)
+        for field in ("attempt_index", "attempt_status", "trial_record"):
+            self.assertIn(field, CSV_FIELDS)
         for field in (
             "n_primary_errors", "n_primary_format_errors",
             "n_valid_distributions", "posthoc_status", "posthoc_skipped",
             "conflict_mention_count", "abstention_count",
+            "primary_api_attempts", "primary_format_retries",
+            "posthoc_api_attempts", "posthoc_format_retries",
         ):
             self.assertIn(field, CONDITION_FIELDS)
         digest = dataset_sha256()

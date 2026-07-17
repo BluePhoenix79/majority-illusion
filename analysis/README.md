@@ -20,6 +20,15 @@ the current `data/entities.json`, three samples per condition, and a complete
 75 entities x 6 ratios x 3 model slots factorial for every supplied
 strategy/layout. It also validates entity-level assignment, the expected arm
 allocation, and that 4:0 never requests an inline distribution.
+Every stored inline distribution is independently reparsed: the three
+resolution probabilities must be integer percentages summing to 100, the
+source-conflict probability is validated independently, and reported counts
+and means must match values recomputed from the stored distributions.
+Strict final analysis also requires every condition to contain all three valid
+primary samples. Post-hoc completion must be either successful or skipped for a
+genuine three-way modal tie; failure-driven skips and post-hoc errors are
+rejected. `--allow-incomplete` remains available only for explicitly labeled
+pilots and audits.
 
 `--allow-incomplete` permits a partial but otherwise valid v3 pilot.
 `--audit-override` permits an explicitly labeled non-final audit. Neither
@@ -50,6 +59,11 @@ override produces final evidence. The default expects the balanced design of
   `rq4_collection_error_*.csv`: TIE, UNSCORED, OTHER, partial scoring,
   post-hoc failures/skips, API/format errors, distribution compliance, and
   missingness by arm.
+- `rq4_retry_diagnostics.csv`: physical format retries by arm, model, ratio,
+  strategy, and layout. Retries are never counted as independent samples.
+- `rq4_retry_sensitivity.csv`: the RQ4 treatment effects both with all complete
+  conditions and after conservatively excluding every condition that needed a
+  primary format retry.
 - `rq4_distribution_and_consistency.csv`: inline probability components and
   self-consistency by arm, model, ratio, strategy, and layout.
 - `rq4_conflict_abstention_*.csv`: distinguishes mentioning source conflict

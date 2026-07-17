@@ -448,3 +448,57 @@ ran out of credits during the Claude Haiku 4.5 arm.
 Files: UPDATES.md
 Status: The affected CSV data is unusable for project conclusions and remains local
 and uncommitted. A fresh complete three-model Standard run is required.
+
+## [Jul 17, 1:25 PM] — Kartigan
+Committed: Not yet — fixed terse conflict/unknown answers being classified as OTHER.
+Files: visualizations/common.py, tests/test_new_approach.py
+Status: All 16 offline tests pass. A 144-call-plan Gemini/DeepSeek live pilot recorded
+zero OTHER and correctly flagged bare `conflicting`; two blank DeepSeek responses remain
+as the separate format-retry issue. Pilot CSVs are local and uncommitted.
+
+## [Jul 17, 1:49 PM] — Kartigan
+Committed: Not yet — verified numeric JSON parsing and corrected the prior diagnosis.
+Files: tests/test_new_approach.py
+Status: Valid integer, zero, decimal, and quoted-numeric answers already parse correctly;
+the old DeepSeek examples had an unmatched trailing quote and belong to the malformed-
+output retry issue. All 17 offline tests pass; no prompt or production parser was changed.
+
+## [Jul 17, 2:21 PM] — Kartigan
+Committed: Not yet — added logged, byte-identical format retries and fatal-error fail-fast.
+Files: README.md, harness/run_experiment.py, tests/test_new_approach.py,
+visualizations/common.py
+Status: All 21 offline tests and the 144-call mock pass. The live pilot stopped after
+2 calls on the first OpenRouter 402 and preserved both rows, confirming fail-fast; live
+format-retry confirmation awaits credits. Prompts and experimental assignments are unchanged.
+
+## [Jul 17, 2:39 PM] — Kartigan
+Committed: Not yet — added independent probability validation and retry sensitivity analysis.
+Files: README.md, analysis/README.md, analysis/run_all_analyses.py,
+analysis/tests/test_run_all_analyses.py, UPDATES.md
+Status: Stored distributions are reparsed, sum/count/mean mismatches now fail validation,
+and RQ4 is repeated without primary-retry conditions. All 40 offline tests and the existing
+144-call mock analysis pass; prompts, assignments, and model calls are unchanged.
+
+## [Jul 17, 2:54 PM] — Kartigan
+Committed: Not yet — added a strict end-of-run completion gate and matching analysis guard.
+Files: README.md, analysis/README.md, analysis/run_all_analyses.py,
+analysis/tests/test_run_all_analyses.py, harness/run_experiment.py,
+tests/test_new_approach.py, UPDATES.md
+Status: Final runs now require three valid primary samples per condition, distinguish genuine
+modal-tie skips from failures, and exit nonzero on invalid collection so `&&` blocks CoT.
+All 43 offline tests, forced primary/post-hoc failures, and a clean three-model mock pass.
+
+## [Jul 17, 4:37 PM] — Kartigan
+Committed: Not yet — completed the 144-call live all-model/all-ratio acceptance pilot.
+Files: results/pilot_final_all_models_raw.csv,
+results/pilot_final_all_models_conditions.csv, UPDATES.md
+Status: All 36 conditions passed: 0 API errors, 0 OTHER, 0 unrecovered format errors,
+3/3 scored samples, 45/45 valid distributions, correct numeric parsing, and verified
+37/38 full-dataset assignment. This two-entity pilot is validation, not inferential evidence.
+
+## [Jul 17, 4:50 PM] — Kartigan
+Committed: Hardened final collection, scoring, probability validation, and completion gates.
+Files: README.md, harness/run_experiment.py, visualizations/common.py, analysis/, tests/,
+UPDATES.md
+Status: Repository unit suites pass and the 144-call acceptance pilot passed all gates.
+Generated pilot and incomplete-run CSVs remain local; ready for sequential Standard then CoT.

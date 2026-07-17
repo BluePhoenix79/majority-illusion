@@ -84,6 +84,10 @@ def complete_current_frame() -> pd.DataFrame:
                         "n_scored": 3,
                         "n_primary_errors": 0,
                         "n_primary_format_errors": 0,
+                        "primary_api_attempts": 3,
+                        "primary_format_retries": 0,
+                        "posthoc_api_attempts": 1,
+                        "posthoc_format_retries": 0,
                         "n_valid_distributions": 3 if actual else 0,
                         "self_consistency": 2 / 3,
                         "self_consistency_all_samples": 2 / 3,
@@ -96,6 +100,7 @@ def complete_current_frame() -> pd.DataFrame:
                         "confidence_best_resolution": 65,
                         "posthoc_status": "completed",
                         "posthoc_skipped": 0,
+                        "posthoc_error": "",
                         "conflict_mention_rate": (entity_index + ratio_index) % 4 / 3,
                         "abstention_rate": (entity_index + model_index) % 4 / 3,
                     }
@@ -119,11 +124,21 @@ class AnalysisBalancedV3Tests(unittest.TestCase):
                 1,
                 1 / 3,
             ]
+            frame.loc[1, "posthoc_status"] = "skipped_modal_tie"
+            frame.loc[1, "posthoc_skipped"] = 1
+            frame.loc[1, "posthoc_api_attempts"] = 0
             frame.loc[2, "modal_category"] = "UNSCORED"
             frame.loc[2, "n_scored"] = 0
             frame.loc[2, "self_consistency"] = float("nan")
+            frame.loc[2, "posthoc_status"] = "skipped_all_unscored"
+            frame.loc[2, "posthoc_skipped"] = 1
+            frame.loc[2, "posthoc_api_attempts"] = 0
             path = self.write_frame(frame, Path(tmp))
-            data, _ = load_condition_data([path], AnalysisState())
+            with self.assertRaises(AnalysisInputError):
+                load_condition_data([path], AnalysisState())
+            data, _ = load_condition_data(
+                [path], AnalysisState(), allow_incomplete=True
+            )
             self.assertEqual(data.loc[0, "is_other"], 1)
             self.assertTrue(pd.isna(data.loc[1, "is_flag"]))
             self.assertEqual(data.loc[1, "diagnostic_tie"], 1)
@@ -193,6 +208,8 @@ class AnalysisBalancedV3Tests(unittest.TestCase):
                 "rq4_missing_outcome_bounds",
                 "rq4_quality_diagnostics",
                 "rq4_distribution_compliance",
+                "rq4_retry_diagnostics",
+                "rq4_retry_sensitivity",
                 "rq4_collection_error_effects",
                 "rq4_conflict_abstention_effects",
                 "model_coefficients",
@@ -212,6 +229,60 @@ class AnalysisBalancedV3Tests(unittest.TestCase):
             )
             rq3 = pd.read_csv(directory / "out" / "rq3_position_outcomes.csv")
             self.assertIn("is_other", set(rq3["outcome"]))
+            retry_sensitivity = pd.read_csv(
+                directory / "out" / "rq4_retry_sensitivity.csv"
+            )
+            self.assertEqual(
+                set(retry_sensitivity["analysis_set"]),
+                {
+                    "all_complete_conditions",
+                    "exclude_conditions_with_primary_format_retry",
+                },
+            )
+
+    def test_probability_validation_recomputes_and_rejects_tampering(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            frame = complete_current_frame()
+            exposed_index = frame.index[frame["inline_confidence_requested"].eq(1)][0]
+
+            bad_sum = frame.copy()
+            distributions = json.loads(bad_sum.at[exposed_index, "inline_distributions"])
+            distributions[0]["p_indeterminate"] = 19
+            bad_sum.at[exposed_index, "inline_distributions"] = json.dumps(distributions)
+            path = self.write_frame(bad_sum, directory, "bad_sum.csv")
+            with self.assertRaises(AnalysisInputError):
+                load_condition_data([path], AnalysisState())
+
+            bad_mean = frame.copy()
+            bad_mean.at[exposed_index, "mean_p_majority"] = 99
+            path = self.write_frame(bad_mean, directory, "bad_mean.csv")
+            with self.assertRaises(AnalysisInputError):
+                load_condition_data([path], AnalysisState())
+
+    def test_retry_accounting_and_sensitivity_exclusion(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            frame = complete_current_frame()
+            exposed_index = frame.index[frame["inline_confidence_requested"].eq(1)][0]
+            frame.at[exposed_index, "primary_api_attempts"] = 4
+            frame.at[exposed_index, "primary_format_retries"] = 1
+            path = self.write_frame(frame, directory)
+            state = AnalysisState()
+            data, provenance = load_condition_data([path], state)
+            run_analyses(data, directory / "out", provenance, [path], state)
+
+            diagnostics = pd.read_csv(directory / "out" / "rq4_retry_diagnostics.csv")
+            self.assertEqual(int(diagnostics["primary_format_retries"].sum()), 1)
+            sensitivity = pd.read_csv(directory / "out" / "rq4_retry_sensitivity.csv")
+            excluded = sensitivity[
+                sensitivity["analysis_set"].eq(
+                    "exclude_conditions_with_primary_format_retry"
+                )
+            ]
+            self.assertTrue(
+                excluded["n_conditions_excluded_for_primary_retry"].eq(1).all()
+            )
 
 
 if __name__ == "__main__":
