@@ -26,18 +26,24 @@ class RevisedWorkflowTests(unittest.TestCase):
             self.assertNotIn("true_side", entity)
             self.assertNotIn("true_value", entity)
 
-    def test_dataset_has_75_unique_entities_with_40_60_domain_mix(self):
+    def test_dataset_has_100_unique_entities_with_40_60_domain_mix(self):
         entities = self.dataset["entities"]
-        self.assertEqual(len(entities), 75)
+        self.assertEqual(len(entities), 100)
         self.assertEqual(
             [entity["entity_id"] for entity in entities],
-            [f"E{index:03d}" for index in range(1, 76)],
+            [f"E{index:03d}" for index in range(1, 101)],
         )
-        self.assertEqual(len({entity["entity_name"] for entity in entities}), 75)
-        self.assertEqual(sum(e["domain"] == "banking" for e in entities), 30)
-        self.assertEqual(sum(e["domain"] == "general" for e in entities), 45)
-        self.assertEqual(sum(e["domain"] == "banking" for e in entities[50:]), 10)
-        self.assertEqual(sum(e["domain"] == "general" for e in entities[50:]), 15)
+        self.assertEqual(len({entity["entity_name"] for entity in entities}), 100)
+        self.assertEqual(sum(e["domain"] == "banking" for e in entities), 40)
+        self.assertEqual(sum(e["domain"] == "general" for e in entities), 60)
+        # Each 25-entity expansion batch is 10 banking + 15 general. Checking the
+        # two slices separately guards against a later batch perturbing an
+        # earlier one (see BATCHES in generate_dataset.py).
+        exp1, exp2 = entities[50:75], entities[75:100]
+        self.assertEqual(sum(e["domain"] == "banking" for e in exp1), 10)
+        self.assertEqual(sum(e["domain"] == "general" for e in exp1), 15)
+        self.assertEqual(sum(e["domain"] == "banking" for e in exp2), 10)
+        self.assertEqual(sum(e["domain"] == "general" for e in exp2), 15)
 
         canonical_first_50 = json.dumps(
             entities[:50], sort_keys=True, separators=(",", ":"),
