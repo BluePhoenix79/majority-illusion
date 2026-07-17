@@ -13,6 +13,10 @@ Scoring rubric (from the research plan):
 Plus two bookkeeping buckets the rubric implies but doesn't name:
   OTHER    - a parsed answer matching neither claim and no conflict language
   UNSCORED - API error or no JSON answer extracted
+
+Condition-level modal ties are represented as TIE (or AMBIGUOUS in sanitized
+legacy files). They are displayed in the complete outcome breakdown but are
+not valid observations for MAJ- or FLAG-rate denominators.
 """
 
 import argparse
@@ -87,9 +91,17 @@ CATEGORY_COLORS = {
     "COM": "#eda100",       # yellow
     "FLAG": "#4a3aa7",      # violet
     "OTHER": "#c3c2b7",     # gray
+    "TIE": "#6f6d68",       # dark gray (new-protocol modal tie)
+    "AMBIGUOUS": "#6f6d68", # legacy/sanitized modal tie
     "UNSCORED": "#e1e0d9",  # light gray
 }
-CATEGORY_ORDER = ["MAJ", "MIN", "COM", "FLAG", "OTHER", "UNSCORED"]
+CATEGORY_ORDER = [
+    "MAJ", "MIN", "COM", "FLAG", "OTHER", "TIE", "AMBIGUOUS", "UNSCORED"
+]
+ANALYTIC_CATEGORIES = {"MAJ", "MIN", "COM", "FLAG", "OTHER"}
+NONANALYTIC_CATEGORIES = {"TIE", "AMBIGUOUS", "UNSCORED"}
+ARM_COLUMN = "distribution_request_assigned"
+ARM_LABELS = {1: "Distribution requested", 0: "Answer only"}
 
 
 def model_color(model_id):
@@ -99,12 +111,30 @@ def model_color(model_id):
             return color
     return MUTED
 
-FLAG_PATTERNS = [
-    r"\bconflict", r"\bdisagree", r"\bcontradict", r"\binconsistent",
-    r"sources\s+(differ|vary)", r"cannot\s+(be\s+)?determin", r"\bunclear\b",
-    r"\bambiguous\b", r"\buncertain\b", r"not\s+(possible|able)\s+to\s+determine",
-    r"no\s+definitive", r"documents?\s+(differ|vary|are\s+split)",
-]
+# Mentioning a contradiction and refusing to resolve it are deliberately
+# separate constructs. A model may accurately mention disagreement and still
+# choose one supplied value; that is not conflict abstention.
+CONFLICT_MENTION_PATTERNS = (
+    r"\bconflict(?:ing|s|ed)?\b",
+    r"\bdisagree(?:ment|ments|s|d)?\b",
+    r"\bcontradict(?:ion|ions|ory|s|ed)?\b",
+    r"\binconsisten(?:t|cy|cies)\b",
+    r"sources?\s+(?:differ|vary|are\s+split)",
+    r"documents?\s+(?:differ|vary|are\s+split)",
+    r"reports?\s+(?:differ|vary|are\s+split)",
+)
+
+ABSTENTION_PATTERNS = (
+    r"\bcannot\s+(?:be\s+)?(?:determine|establish|resolve|verify|conclude)",
+    r"\bcan(?:not|'t)\s+(?:determine|choose|select|say\s+which|tell\s+which)",
+    r"\bunable\s+to\s+(?:determine|choose|select|resolve|verify)",
+    r"\bnot\s+(?:possible|able)\s+to\s+(?:determine|choose|select|resolve)",
+    r"\b(?:insufficient|not\s+enough)\s+(?:evidence|information)(?:\s+to\s+(?:determine|choose|select))?",
+    r"\bno\s+(?:definitive|reliable|single|unique|conclusive)\s+(?:answer|value|conclusion)",
+    r"\b(?:answer|result|value)\s+is\s+(?:indeterminate|undetermined|unresolved)",
+    r"\brefus(?:e|es|ed|ing)\s+to\s+(?:choose|select|provide)",
+    r"\bneither\s+(?:claim|value|answer)\s+can\s+be\s+(?:determined|selected)",
+)
 
 
 def _norm(value):
@@ -123,31 +153,170 @@ def _value_in(value, text):
     """
     text = _norm(text)
     v = _norm(value).strip("$%")
+    if not v:
+        return False
     try:
         target = float(v)
     except ValueError:
         return re.search(
-            rf"(?<![\w.]){re.escape(_norm(value))}(?![\w.])", text) is not None
+            rf"(?<!\w){re.escape(_norm(value))}(?!\w)", text
+        ) is not None
     return any(float(n) == target for n in _NUM_RE.findall(text))
 
 
+def _row_value(row, key, default=""):
+    """Read a key from a dict or Series without treating missing data as true."""
+    try:
+        value = row.get(key, default)
+    except AttributeError:
+        try:
+            value = row[key]
+        except (KeyError, TypeError):
+            value = default
+    return default if pd.isna(value) else value
+
+
+def score_response(row):
+    """Return category plus conflict-mention and abstention diagnostics.
+
+    ``FLAG`` is reserved for a strong refusal/indeterminate resolution. Merely
+    noting a conflict is not enough: an answer that mentions both supplied
+    values without refusing is ``COM``; an answer that explicitly supplies
+    only one value remains ``MAJ`` or ``MIN``. This keeps source-conflict
+    awareness separate from behavioral abstention, as required by RQ4.
+    """
+    if _row_value(row, "error") or not _row_value(row, "parsed_answer"):
+        return {
+            "category": "UNSCORED",
+            "mentions_conflict": 0,
+            "abstained": 0,
+        }
+
+    answer = _norm(_row_value(row, "parsed_answer"))
+    has_maj = _value_in(_row_value(row, "majority_value"), answer)
+    has_min = _value_in(_row_value(row, "minority_value"), answer)
+    mentions_conflict = int(any(
+        re.search(pattern, answer) for pattern in CONFLICT_MENTION_PATTERNS
+    ))
+    abstained = int(any(
+        re.search(pattern, answer) for pattern in ABSTENTION_PATTERNS
+    ))
+
+    if abstained:
+        category = "FLAG"
+    elif has_maj and has_min:
+        category = "COM"
+    elif has_maj:
+        category = "MAJ"
+    elif has_min:
+        category = "MIN"
+    else:
+        category = "OTHER"
+    return {
+        "category": category,
+        "mentions_conflict": mentions_conflict,
+        "abstained": abstained,
+    }
+
+
 def classify(row):
-    if row["error"] or not row["parsed_answer"]:
-        return "UNSCORED"
-    ans = _norm(row["parsed_answer"])
-    has_maj = _value_in(row["majority_value"], ans)
-    has_min = _value_in(row["minority_value"], ans)
-    flagged = any(re.search(p, ans) for p in FLAG_PATTERNS)
-    if has_maj and has_min:
-        return "FLAG" if flagged else "COM"
-    if has_maj:
-        return "MAJ"
-    if has_min:
-        return "MIN"
-    return "FLAG" if flagged else "OTHER"
+    """Backward-compatible category-only wrapper around :func:`score_response`."""
+    return score_response(row)["category"]
 
 
-def load_results(csv_paths=None, strategy=None, exclude=None):
+def analytic_rate_rows(df):
+    """Return rows eligible for MAJ/FLAG rate denominators.
+
+    Complete outcome plots intentionally do *not* call this helper: TIE,
+    AMBIGUOUS, and UNSCORED remain visible there as data-quality outcomes.
+    """
+    eligible = df["category"].isin(ANALYTIC_CATEGORIES)
+    if {"n_scored", "n_samples"}.issubset(df.columns):
+        n_scored = pd.to_numeric(df["n_scored"], errors="coerce")
+        n_samples = pd.to_numeric(df["n_samples"], errors="coerce")
+        eligible &= n_scored.eq(n_samples)
+    return df[eligible].copy()
+
+
+def arm_display_label(df):
+    """Human-readable treatment-arm provenance for figure titles."""
+    if "elicitation_arm" not in df.columns:
+        return "Elicitation arm unavailable"
+    labels = sorted(set(df["elicitation_arm"].dropna().astype(str)) - {""})
+    if len(labels) == 1:
+        return f"{labels[0]} arm"
+    if len(labels) > 1:
+        return "Both elicitation arms (explicitly combined)"
+    return "Elicitation arm unavailable"
+
+
+def _assignment_value(value):
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "y", "distribution", "requested"}:
+        return 1
+    if text in {"0", "false", "no", "n", "answer-only", "answer_only"}:
+        return 0
+    return float("nan")
+
+
+def _filter_elicitation_arm(df, arm):
+    """Apply an explicit RQ4 arm filter and prevent accidental pooling."""
+    if ARM_COLUMN not in df.columns:
+        if arm in {"distribution", "answer-only"}:
+            raise SystemExit(
+                f"--arm {arm} requires the {ARM_COLUMN} column; this appears "
+                "to be a legacy CSV."
+            )
+        df = df.copy()
+        df["elicitation_arm"] = "Unknown (legacy schema)"
+        print(
+            f"WARNING: {ARM_COLUMN} is absent; treatment-arm filtering is "
+            "unavailable for this legacy CSV."
+        )
+        return df
+
+    assignment = df[ARM_COLUMN].map(_assignment_value)
+    nonblank = df[ARM_COLUMN].astype(str).str.strip().ne("")
+    invalid = nonblank & assignment.isna()
+    if invalid.any():
+        examples = sorted(set(df.loc[invalid, ARM_COLUMN].astype(str)))[:5]
+        raise SystemExit(
+            f"Unrecognized {ARM_COLUMN} values: {examples}. Expected 0/1."
+        )
+    if assignment.isna().any():
+        raise SystemExit(
+            f"{ARM_COLUMN} is blank for {int(assignment.isna().sum())} rows; "
+            "cannot identify the RQ4 treatment arm safely."
+        )
+
+    present = set(assignment.astype(int))
+    if arm is None and present == {0, 1}:
+        raise SystemExit(
+            "This CSV contains both confidence-elicitation arms. Choose "
+            "--arm distribution or --arm answer-only for a single-arm plot; "
+            "use --arm all only when intentional pooling/comparison is the "
+            "purpose of the figure."
+        )
+
+    df = df.copy()
+    df[ARM_COLUMN] = assignment.astype(int)
+    df["elicitation_arm"] = df[ARM_COLUMN].map(ARM_LABELS)
+    if arm in {"distribution", "answer-only"}:
+        wanted = 1 if arm == "distribution" else 0
+        df = df[df[ARM_COLUMN].eq(wanted)].copy()
+        print(f"Filtered to arm={arm}: {len(df)} rows")
+        if df.empty:
+            raise SystemExit(f"No rows remain after --arm {arm}.")
+    elif arm == "all":
+        labels = [ARM_LABELS[value] for value in sorted(present, reverse=True)]
+        print(f"Using all elicitation arms by explicit request: {labels}")
+    elif arm is None and len(present) == 1:
+        only = next(iter(present))
+        print(f"CSV contains one elicitation arm: {ARM_LABELS[only]}")
+    return df
+
+
+def load_results(csv_paths=None, strategy=None, exclude=None, arm=None):
     """Load one or more result CSVs into a scored DataFrame.
 
     `strategy` filters to one prompting strategy (e.g. "standard" or "cot")
@@ -181,12 +350,27 @@ def load_results(csv_paths=None, strategy=None, exclude=None):
             df = df[df["strategy"] == strategy]
             print(f"Filtered to strategy={strategy}: {len(df)} rows")
         elif len(present) > 1:
-            print(f"WARNING: CSV mixes prompting strategies {present}; these "
-                  "figures pool them. Re-run with --strategy <name> to split.")
+            raise SystemExit(
+                f"This CSV contains multiple prompting strategies {present}. "
+                "Pass --strategy standard or --strategy cot; pooling would mix "
+                "two experiments."
+            )
+
+    df = _filter_elicitation_arm(df, arm)
 
     is_condition_level = "modal_category" in df.columns
     if is_condition_level:
-        df["category"] = df["modal_category"]
+        df["category"] = (
+            df["modal_category"].astype(str).str.strip().str.upper()
+        )
+        df.loc[df["category"].eq(""), "category"] = "UNSCORED"
+        # Interrupted legacy runs sometimes recorded a chosen modal category
+        # even when modal_tie=1. Never let that arbitrary choice enter a rate
+        # denominator.
+        if "modal_tie" in df.columns:
+            tied = pd.to_numeric(df["modal_tie"], errors="coerce").eq(1)
+            df.loc[tied & ~df["category"].isin({"TIE", "AMBIGUOUS"}),
+                   "category"] = "AMBIGUOUS"
         if "parsed_answer" not in df.columns:
             df["parsed_answer"] = df.get("modal_answer", "")
         if "error" not in df.columns:
@@ -204,17 +388,47 @@ def load_results(csv_paths=None, strategy=None, exclude=None):
               f"{before - len(df)} rows. Preview only; do not quote these "
               "figures in the brief.")
     if is_condition_level:
-        df["raw_posthoc_confidence"] = pd.to_numeric(
-            df.get("posthoc_probability", ""), errors="coerce"
+        # New-protocol schema. Legacy column names remain read-only fallbacks
+        # so an interrupted pilot can be inspected without describing its
+        # value as calibrated or objectively correct.
+        confidence_source = None
+        for column in (
+            "confidence_best_resolution",
+            "posthoc_subjective_confidence",
+            "posthoc_probability",
+        ):
+            if column in df.columns:
+                confidence_source = df[column]
+                break
+        if confidence_source is None:
+            confidence_source = pd.Series(float("nan"), index=df.index)
+        df["subjective_best_resolution_confidence"] = pd.to_numeric(
+            confidence_source, errors="coerce"
         )
-        # Fictional entities have no external correctness target. Condition-
-        # level confidence is the model's raw post-hoc self-report, not a
-        # truth-calibrated score.
-        df["confidence"] = df["raw_posthoc_confidence"]
+        # Retained as a plotting alias; this is explicitly a subjective
+        # best-resolution estimate, not an empirical probability of truth.
+        df["confidence"] = df["subjective_best_resolution_confidence"]
+
+        for column in (
+            "mean_p_majority",
+            "mean_p_minority",
+            "mean_p_indeterminate",
+            "mean_p_sources_conflict",
+        ):
+            if column not in df.columns:
+                df[column] = float("nan")
+            else:
+                df[column] = pd.to_numeric(df[column], errors="coerce")
     else:
-        df["confidence"] = pd.to_numeric(
-            df.get("parsed_confidence", ""), errors="coerce"
+        confidence_source = (
+            df["confidence_best_resolution"]
+            if "confidence_best_resolution" in df.columns
+            else df.get("parsed_confidence", "")
         )
+        df["subjective_best_resolution_confidence"] = pd.to_numeric(
+            confidence_source, errors="coerce"
+        )
+        df["confidence"] = df["subjective_best_resolution_confidence"]
     df["majority_share"] = df["ratio"].map(MAJORITY_SHARE)
     df["model_label"] = df["model_id"].map(pretty_model_label)
     df["model_key"] = df["model_id"]
@@ -230,6 +444,30 @@ def wilson_ci(k, n, z=1.96):
     center = (p + z**2 / (2 * n)) / denom
     half = z * ((p * (1 - p) / n + z**2 / (4 * n**2)) ** 0.5) / denom
     return (max(0.0, center - half), min(1.0, center + half))
+
+
+def newcombe_difference_ci(k_treatment, n_treatment, k_control, n_control,
+                           z=1.96):
+    """Newcombe hybrid-score CI for two independent proportion differences.
+
+    Returns ``(difference, lower, upper)`` for treatment minus control. The
+    construction combines the two Wilson score intervals without a pooled
+    variance assumption.
+    """
+    if n_treatment == 0 or n_control == 0:
+        return (float("nan"), float("nan"), float("nan"))
+    p_t = k_treatment / n_treatment
+    p_c = k_control / n_control
+    lo_t, hi_t = wilson_ci(k_treatment, n_treatment, z=z)
+    lo_c, hi_c = wilson_ci(k_control, n_control, z=z)
+    difference = p_t - p_c
+    lower = difference - (
+        (p_t - lo_t) ** 2 + (hi_c - p_c) ** 2
+    ) ** 0.5
+    upper = difference + (
+        (hi_t - p_t) ** 2 + (p_c - lo_c) ** 2
+    ) ** 0.5
+    return difference, max(-1.0, lower), min(1.0, upper)
 
 
 def apply_style():
@@ -270,6 +508,13 @@ def make_arg_parser(description):
     ap.add_argument("--strategy", default=None,
                     help="filter to one prompting strategy (standard/cot) when "
                          "the CSV contains several")
+    ap.add_argument(
+        "--arm", choices=("distribution", "answer-only", "all"), default=None,
+        help=(
+            "confidence-elicitation arm. Required when both arms are present; "
+            "'all' is an explicit opt-in to pooling or treatment comparison"
+        ),
+    )
     ap.add_argument("--exclude", nargs="*", default=None, metavar="CAT",
                     help="drop rows scored as these categories before plotting "
                          "(e.g. --exclude COM); for previews/sensitivity checks")

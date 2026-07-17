@@ -1,7 +1,8 @@
-"""Figure 5: raw confidence vs. behavioral self-consistency.
+"""Figure 5: subjective best-resolution confidence and self-consistency.
 
 Self-consistency is the modal-category share across three identical answer
-calls. It is displayed beside the raw post-hoc probability.
+calls. It is displayed beside, but never combined with, the model's post-hoc
+estimate that its modal answer best resolves the supplied documents.
 
 Usage:
     python visualizations/plot_agreement.py --csv results/conditions_<run>.csv
@@ -10,31 +11,24 @@ Usage:
 import matplotlib.pyplot as plt
 
 from analyze_agreement import condition_table
-from common import (RATIO_ORDER, SURFACE, apply_style, load_results,
-                    make_arg_parser, pretty_model_label, save_figure)
+from common import (RATIO_ORDER, SURFACE, apply_style, arm_display_label,
+                    load_results, make_arg_parser, pretty_model_label,
+                    save_figure)
 
-RAW_COLOR = "#eda100"
+SUBJECTIVE_COLOR = "#eda100"
 BEHAV_COLOR = "#2a78d6"
 
 
 def main():
     args = make_arg_parser(__doc__.splitlines()[0]).parse_args()
-    df = load_results(args.csv, args.strategy, args.exclude)
+    df = load_results(args.csv, args.strategy, args.exclude, args.arm)
     if "modal_category" not in df.columns and (
         "trial_index" not in df.columns or df["trial_index"].nunique() <= 1
     ):
         raise SystemExit("Needs a condition CSV or multi-trial raw run.")
 
     cond = condition_table(df)
-    cond["raw_norm"] = cond["raw_posthoc"] / 100
-    # Compatibility fallback for old raw files with only inline confidence.
-    inline = cond["mean_inline_selfreport"]
-    inline_norm = (
-        (inline - 1) / 4 if inline.dropna().max() <= 5 else inline / 100
-    )
-    cond["raw_norm"] = cond["raw_norm"].fillna(
-        inline_norm
-    )
+    cond["best_resolution_norm"] = cond["best_resolution_confidence"] / 100
 
     ratios = [ratio for ratio in RATIO_ORDER if ratio in set(cond["ratio"])]
     models = sorted(cond["model_id"].unique())
@@ -50,8 +44,10 @@ def main():
     for ax, model_id in zip(axes[0], models):
         group = cond[cond["model_id"] == model_id]
         xs = list(range(len(ratios)))
-        raw = [group[group["ratio"] == ratio]["raw_norm"].mean()
-               for ratio in ratios]
+        subjective = [
+            group[group["ratio"] == ratio]["best_resolution_norm"].mean()
+            for ratio in ratios
+        ]
 
         behavioral = [
             group[group["ratio"] == ratio]["self_consistency"].mean()
@@ -59,8 +55,10 @@ def main():
         ]
         ns = [len(group[group["ratio"] == ratio]) for ratio in ratios]
 
-        ax.bar([x - width/2 for x in xs], raw, width, color=RAW_COLOR,
-               label="Raw post-hoc probability", edgecolor=SURFACE, linewidth=2)
+        ax.bar([x - width/2 for x in xs], subjective, width,
+               color=SUBJECTIVE_COLOR,
+               label="Subjective best-resolution confidence",
+               edgecolor=SURFACE, linewidth=2)
         ax.bar([x + width/2 for x in xs], behavioral, width, color=BEHAV_COLOR,
                label="Self-consistency (separate diagnostic)",
                edgecolor=SURFACE, linewidth=2)
@@ -76,11 +74,15 @@ def main():
         ax.set_yticklabels(["0%", "25%", "50%", "75%", "100%"])
         ax.set_xlabel("Evidence ratio")
 
-    axes[0][0].set_ylabel("Confidence / agreement")
+    axes[0][0].set_ylabel("Reported estimate / observed stability")
     handles, labels = axes[0][0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="upper center", ncol=2,
                bbox_to_anchor=(0.5, -0.02), fontsize=9)
-    fig.suptitle("Correctness confidence and behavioral stability", fontsize=12)
+    fig.suptitle(
+        "Subjective best-resolution confidence and behavioral stability\n"
+        f"{arm_display_label(df)}",
+        fontsize=12,
+    )
     save_figure(fig, args, "fig5_agreement.png")
 
 

@@ -1,7 +1,8 @@
 """Figure 4 — full outcome breakdown per ratio and model.
 
 100% stacked bars showing how every response was categorized (MAJ / MIN / COM /
-FLAG / OTHER / UNSCORED) at each evidence ratio, one panel per model. This is
+FLAG / OTHER / TIE / AMBIGUOUS / UNSCORED) at each evidence ratio, one panel
+per model. This is
 the honest "everything" view behind Figures 1-3: it shows where the majority
 answers came at the expense of flagging, and surfaces parse failures.
 
@@ -13,12 +14,13 @@ Usage:
 import matplotlib.pyplot as plt
 
 from common import (CATEGORY_COLORS, CATEGORY_ORDER, RATIO_ORDER, SURFACE,
-                    apply_style, load_results, make_arg_parser, save_figure)
+                    apply_style, arm_display_label, load_results,
+                    make_arg_parser, save_figure)
 
 
 def main():
     args = make_arg_parser(__doc__.splitlines()[0]).parse_args()
-    df = load_results(args.csv, args.strategy, args.exclude)
+    df = load_results(args.csv, args.strategy, args.exclude, args.arm)
 
     models = sorted(df["model_id"].unique())
     apply_style()
@@ -70,7 +72,10 @@ def main():
     handles = [Patch(facecolor=CATEGORY_COLORS[c], label=c) for c in legend_cats]
     fig.legend(handles, legend_cats, loc="upper center", ncol=len(legend_cats),
                bbox_to_anchor=(0.5, -0.04), fontsize=9)
-    fig.suptitle("Response categories by evidence ratio", fontsize=12)
+    fig.suptitle(
+        f"Response categories by evidence ratio\n{arm_display_label(df)}",
+        fontsize=12,
+    )
 
     save_figure(fig, args, "fig4_outcome_breakdown.png")
 

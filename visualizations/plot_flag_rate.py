@@ -5,7 +5,7 @@ a side, across the conflict conditions. H2 predicts this safety behavior fades
 as the majority grows more lopsided.
 
 Grouped bars, one bar per model at each ratio. (At small n the 0% bars still
-draw wide Wilson error bars, which looks busy; at the full n=50 those whiskers
+draw wide Wilson error bars, which looks busy; at the full n=75 those whiskers
 shrink and the chart reads cleanly.)
 
 Usage:
@@ -15,15 +15,16 @@ Usage:
 
 import matplotlib.pyplot as plt
 
-from common import (CONFLICT_RATIOS, MUTED, SURFACE, apply_style, load_results,
+from common import (CONFLICT_RATIOS, MUTED, SURFACE, analytic_rate_rows,
+                    apply_style, arm_display_label, load_results,
                     make_arg_parser, model_color, save_figure, wilson_ci)
 
 
 def main():
     args = make_arg_parser(__doc__.splitlines()[0]).parse_args()
-    df = load_results(args.csv, args.strategy, args.exclude)
-    scored = df[(df["category"] != "UNSCORED")
-                & (df["ratio"].isin(CONFLICT_RATIOS))]
+    df = load_results(args.csv, args.strategy, args.exclude, args.arm)
+    scored = analytic_rate_rows(df)
+    scored = scored[scored["ratio"].isin(CONFLICT_RATIOS)]
 
     apply_style()
     fig, ax = plt.subplots(figsize=(7.5, 4.5))
@@ -69,7 +70,10 @@ def main():
     ax.set_yticklabels(["0%", "25%", "50%", "75%", "100%"])
     ax.set_xlabel("Evidence ratio (majority : minority documents)")
     ax.set_ylabel("Conflict-flag rate")
-    ax.set_title("Conflict blindness: flagging fades as the majority grows")
+    ax.set_title(
+        "Conflict abstention by evidence ratio\n"
+        f"{arm_display_label(df)}"
+    )
     ax.legend(loc="upper right", fontsize=9)
 
     save_figure(fig, args, "fig2_flag_rate.png")

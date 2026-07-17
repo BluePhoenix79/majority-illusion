@@ -2,45 +2,81 @@
 
 Plot scripts for the Research Brief figures. Each script reads experiment CSVs
 from `results/` (default: the most recent `conditions_*.csv`, then the most
-recent legacy/raw `run_*.csv`), applies the Day 1 scoring rubric, prints the
+recent legacy/raw `run_*.csv`), applies the scoring rubric, prints the
 underlying numbers to stdout, and saves a 300-dpi PNG into
-`visualizations/figures/`. The condition file is preferred because its unit of
-analysis is one modal result per model/entity/ratio, not three correlated calls.
+`visualizations/figures/`. A condition file is preferred because its unit of
+analysis is one modal result per model/entity/ratio, not three correlated
+primary calls.
 
-| Script | Figure | Hypothesis |
+| Script | Figure | Research use |
 |---|---|---|
-| `plot_majority_curve.py` | Majority-follow rate vs. evidence ratio (the majority-illusion curve) | H1 |
-| `plot_flag_rate.py` | Conflict-flag rate vs. ratio (conflict blindness) | H2 |
-| `plot_outcome_breakdown.py` | 100% stacked MAJ/MIN/COM/FLAG breakdown per ratio and model | all / H4 |
-| `plot_agreement.py` | Raw confidence beside self-consistency | stability |
+| `plot_majority_curve.py` | Majority-follow rate versus evidence ratio | RQ1 |
+| `plot_flag_rate.py` | Conflict-abstention rate versus ratio | RQ1 / RQ4 |
+| `plot_outcome_breakdown.py` | 100% stacked outcome breakdown | descriptive, all RQs |
+| `plot_agreement.py` | Subjective best-resolution confidence beside self-consistency | RQ1 / stability |
+| `plot_rq4_treatment_effect.py` | Distribution-request minus answer-only outcome effects | RQ4 |
 
-Run from the repo root or this directory:
+Run from the repository root or this directory:
 
 ```bash
-python visualizations/plot_majority_curve.py                 # latest full run
-python visualizations/plot_majority_curve.py --csv results/pilot_gemini_gpt5mini.csv
+python visualizations/plot_majority_curve.py
+python visualizations/plot_majority_curve.py --csv results/conditions_<run>.csv --arm distribution
 python visualizations/plot_majority_curve.py --output /tmp/fig1.png
+python visualizations/plot_rq4_treatment_effect.py --csv results/conditions_<run>.csv --strategy standard
 ```
 
-Scoring (in `common.py`, per the research plan): each response is classified as
-**MAJ** (matches majority claim), **MIN** (matches minority), **COM** (mentions
-both without refusing), **FLAG** (notes the conflict / refuses to pick), plus
-**OTHER** (matches neither) and **UNSCORED** (API error or unparseable JSON).
+The 38 distribution-request entities and 37 matched answer-only entities are
+different experimental arms. If a CSV contains both, every descriptive plot
+requires `--arm distribution` or `--arm answer-only`; it will stop instead of
+silently pooling them. `--arm all` is an explicit opt-in intended for a
+treatment comparison. The dedicated RQ4 figure uses both arms intentionally,
+restricts itself to conflict ratios, and reports distribution-request minus
+answer-only complete-case effects with 95% Newcombe intervals. Use the
+analysis runner's `rq4_missing_outcome_bounds.csv` alongside it.
+
+## Scoring
+
+Each primary response is classified as:
+
+- **MAJ:** matches the majority-supported value.
+- **MIN:** matches the minority-supported value.
+- **COM:** includes both values without refusing to resolve them.
+- **FLAG:** strongly refuses to select a value or says the resolution is
+  indeterminate.
+- **OTHER:** matches neither supplied value without a strong refusal.
+- **TIE/AMBIGUOUS:** the three calls have no unique modal category.
+- **UNSCORED:** an API error occurred or no answer was extracted.
+
+Mentioning that sources disagree is stored as a separate diagnostic and does
+not by itself make an answer `FLAG`. The classifier exposes `category`,
+`mentions_conflict`, and `abstained` so conflict awareness and behavioral
+abstention are not conflated.
+
 Numeric claim values (`$12`, `3.5%`, `240`) are compared as numbers, so
-`12.00`/`3.5 percent` match but `2400` never matches `240`; other values use
-whole-token string matching. Proportion error bars are 95% Wilson intervals.
+`12.00` or `3.5 percent` match, while `2400` never matches `240`. Other values
+use whole-token string matching.
 
-If a CSV contains both prompting strategies (standard + CoT), pass
-`--strategy standard` or `--strategy cot` — pooling them mixes two experiments.
-New condition CSVs use the 0-100 confidence score. Post-hoc confidence and 
-self-consistency remain separate columns and are shown together only for 
-comparison in `plot_agreement.py`.
+MAJ- and FLAG-rate plots exclude `TIE`, `AMBIGUOUS`, `UNSCORED`, and conditions
+with fewer than three scored primary calls from their analytic denominators.
+The outcome-breakdown plot intentionally displays all categories. Proportion
+error bars are 95% Wilson intervals.
 
-Claude and DeepSeek share `model_provider=openrouter`, so every current plot
-groups by `model_id`. Grouping by provider would incorrectly pool the two
-models and must not be reintroduced.
+## Confidence and repeated calls
 
-The automatic FLAG/COM keyword matching is a first pass — the plan calls for
-human double-scoring of a 15% sample (Cohen's kappa), so spot-check the
-`category` assignments against `raw_response` before quoting numbers in the
-brief.
+New condition CSVs store the rich inline distribution as
+`mean_p_majority`, `mean_p_minority`, `mean_p_indeterminate`, and
+`mean_p_sources_conflict`. The separate post-hoc field
+`confidence_best_resolution` is the model's subjective 0-100 estimate that
+its modal answer best resolves the supplied documents; it is not an externally
+calibrated probability.
+
+Post-hoc confidence and observed self-consistency remain separate measures.
+Self-consistency uses all three planned calls as its denominator, so one valid
+call plus two failures is 1/3 stability rather than 100%. The two measures are
+shown side-by-side only for comparison in `plot_agreement.py`; they are never
+combined into one score.
+
+If a CSV contains both prompting strategies, pass `--strategy standard` or
+`--strategy cot`. Pooling them would mix two experiments. Claude and DeepSeek
+share `model_provider=openrouter`, so plots group by `model_id`; grouping by
+provider would incorrectly combine two models.

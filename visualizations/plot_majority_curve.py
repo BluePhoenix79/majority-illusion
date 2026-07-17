@@ -11,14 +11,17 @@ Usage:
 
 import matplotlib.pyplot as plt
 
-from common import (RATIO_ORDER, apply_style, load_results, make_arg_parser,
+from common import (RATIO_ORDER, analytic_rate_rows, apply_style,
+                    arm_display_label, load_results, make_arg_parser,
                     model_color, save_figure, wilson_ci)
 
 
 def main():
     args = make_arg_parser(__doc__.splitlines()[0]).parse_args()
-    df = load_results(args.csv, args.strategy, args.exclude)
-    scored = df[df["category"] != "UNSCORED"]
+    df = load_results(args.csv, args.strategy, args.exclude, args.arm)
+    # Modal ties/ambiguous outcomes and failed calls remain visible in the
+    # outcome breakdown, but are not evidence for or against majority-following.
+    scored = analytic_rate_rows(df)
 
     apply_style()
     fig, ax = plt.subplots(figsize=(7, 4.5))
@@ -56,7 +59,9 @@ def main():
     ax.set_yticklabels(["0%", "25%", "50%", "75%", "100%"])
     ax.set_xlabel("Evidence ratio (majority : minority documents)")
     ax.set_ylabel("Majority-follow rate")
-    ax.set_title("Majority-follow rate by evidence ratio")
+    ax.set_title(
+        f"Majority-follow rate by evidence ratio\n{arm_display_label(df)}"
+    )
     ax.legend(loc="lower right", fontsize=9)
 
     save_figure(fig, args, "fig1_majority_curve.png")

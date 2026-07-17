@@ -5,11 +5,16 @@ For every entity x ratio x model condition the harness:
   2. classifies each answer MAJ/MIN/COM/FLAG/OTHER/UNSCORED;
   3. records modal-category self-consistency as a separate diagnostic;
   4. asks the same model for a post-hoc 0-100 probability that the modal answer
-     gives the independently labeled true value.
+     is the best resolution of the supplied documents.
 
-Most entities also report a 0-100 probability inside each primary answer. A
-deterministic, domain-stratified 10-entity control omits that inline request so
-the study can measure whether confidence elicitation changes answer behavior.
+For conflict ratios, most entities also report a rich probability distribution
+inside each primary answer: probabilities for counterbalanced Claim A, Claim B,
+and indeterminate (summing to 100), plus an independent probability that the
+sources conflict. A deterministic, domain-and-attribute-stratified 37-entity
+control sees the same Claim A/B labels but only returns an answer, so the study
+can measure whether distribution elicitation changes behavior. Every 4:0
+condition is a pure answer-only unanimous-context control; post-hoc confidence
+is still collected for it.
 
 The default roster is three explicit model slots in one invocation:
   - gemini:   gemini-3.5-flash via the native google-genai SDK;
@@ -88,14 +93,22 @@ DEFAULT_CLAUDE_MODEL = "anthropic/claude-haiku-4.5"
 DEFAULT_OPENROUTER_MODEL = DEFAULT_DEEPSEEK_MODEL
 
 DEFAULT_SAMPLES_PER_CONDITION = 3
-DEFAULT_NO_INLINE_CONFIDENCE_ENTITIES = 10
+DEFAULT_NO_INLINE_CONFIDENCE_ENTITIES = 37
+PROTOCOL_VERSION = "2026-07-17-rich-distribution-v3-balanced"
+
+# Alternating this fixed order with entity number gives an exactly balanced
+# Claim-A mapping across the full 75 x 6 design (225 majority-as-A and 225
+# minority-as-A conditions). The run seed and layout index flip labels without
+# changing that balance.
+RATIO_COUNTERBALANCE_ORDER = ("4:0", "3:1", "2:2", "4:1", "2:1", "3:2")
 
 # Models "think" before answering, and those reasoning/thinking tokens count
 # against the output budget -- a tight cap gets consumed by reasoning and
 # truncates the JSON mid-object. Give generous headroom well above the ~30
 # tokens the visible JSON answer needs.
 GEMINI_MAX_OUTPUT_TOKENS = 2048
-OPENROUTER_MAX_TOKENS = 2048
+OPENROUTER_DEFAULT_MAX_TOKENS = 2048
+OPENROUTER_CLAUDE_MAX_TOKENS = 4096
 MAX_RETRIES = 4  # exponential-backoff attempts on 429/5xx/connection errors
 
 # Reasoning-depth controls, one per model, verified against each SDK/API before
@@ -189,8 +202,8 @@ SYSTEM_PROMPT_COT = (
 
 POSTHOC_SYSTEM_PROMPT = (
     "You are a confidence evaluator. Based only on the supplied documents and "
-    "the previous answer, estimate whether that answer gives the single true "
-    "factual value. Do not revise or replace the answer."
+    "the previous answer, estimate whether that answer is the best resolution "
+    "of the supplied documents. Do not revise or replace the answer."
 )
 
 PROMPT_CORE_TEMPLATE = """Below are documents retrieved for a research question. Read them, then answer the question.
@@ -199,17 +212,27 @@ PROMPT_CORE_TEMPLATE = """Below are documents retrieved for a research question.
 
 Question: {question}"""
 
-PRIMARY_WITH_CONFIDENCE = """Respond with ONLY a JSON object in exactly this format:
-{{"answer": "<your answer>", "probability_correct": <integer 0-100>}}
+CLAIM_LABELS = """Use these counterbalanced labels:
+Claim A: {claim_a_value}
+Claim B: {claim_b_value}"""
 
-probability_correct is the probability that your answer supplies the single
-true factual value. It is not merely confidence that your answer follows the
-claim repeated most often."""
+PRIMARY_WITH_CONFIDENCE = CLAIM_LABELS + """
 
-PRIMARY_WITHOUT_CONFIDENCE = """Respond with ONLY a JSON object in exactly this format:
-{{"answer": "<your answer>"}}
+Respond with ONLY a JSON object in exactly this format:
+{{"answer": "<your answer>", "p_claim_a": <integer 0-100>, "p_claim_b": <integer 0-100>, "p_indeterminate": <integer 0-100>, "p_sources_conflict": <integer 0-100>}}
 
-Do not report, rate, or discuss your confidence."""
+p_claim_a, p_claim_b, and p_indeterminate are your subjective probabilities
+for the best resolution of the supplied documents and must sum exactly to 100.
+p_sources_conflict is an independent 0-100 estimate that the supplied sources
+conflict; it is not included in that sum."""
+
+PRIMARY_WITHOUT_CONFIDENCE = CLAIM_LABELS + """
+
+Respond with ONLY a JSON object in exactly this format:
+{{"answer": "<your answer>"}}"""
+
+PRIMARY_UNANIMOUS_ANSWER_ONLY = """Respond with ONLY a JSON object in exactly this format:
+{{"answer": "<your answer>"}}"""
 
 POSTHOC_TEMPLATE = """{prompt_core}
 
@@ -217,36 +240,168 @@ A model previously gave this answer:
 {previous_answer}
 
 Do not answer the question again and do not revise the previous answer.
-Evaluate only whether it supplies the single true factual value. Return ONLY
-one JSON object in exactly this format:
-{{"probability_correct": <integer 0-100>}}"""
+Estimate only whether it is the best resolution of the supplied documents.
+Return ONLY one JSON object in exactly this format:
+{{"confidence_best_resolution": <integer 0-100>}}"""
 
 
 CSV_FIELDS = [
-    "run_id", "timestamp_utc", "entity_id", "entity_name", "domain",
+    "run_id", "protocol_version", "dataset_sha256", "run_seed",
+    "layout_index", "timestamp_utc", "entity_id", "entity_name", "domain",
     "attribute", "ratio", "n_docs",
     "call_phase", "trial_index", "strategy", "prompt_hash", "doc_positions",
-    "confidence_condition", "inline_confidence_requested", "model_slot",
+    "confidence_condition", "distribution_request_assigned",
+    "inline_confidence_requested", "model_slot",
     "model_provider", "model_id", "returned_model_id", "question",
-    "majority_value", "minority_value", "response_category", "raw_response",
-    "parsed_answer", "parsed_confidence", "confidence_scale",
-    "format_error", "prompt_tokens",
-    "completion_tokens", "error",
+    "majority_value", "minority_value", "claim_a_value", "claim_b_value",
+    "claim_a_side", "claim_b_side", "response_category", "mentions_conflict",
+    "abstained", "raw_response",
+    "parsed_answer", "p_claim_a", "p_claim_b", "p_indeterminate",
+    "p_sources_conflict", "p_majority", "p_minority",
+    "confidence_best_resolution", "confidence_scale",
+    "format_error", "prompt_tokens", "completion_tokens", "reasoning_tokens",
+    "error",
 ]
 
 CONDITION_FIELDS = [
-    "run_id", "timestamp_utc", "entity_id", "entity_name", "domain",
+    "run_id", "protocol_version", "dataset_sha256", "run_seed",
+    "layout_index", "timestamp_utc", "entity_id", "entity_name", "domain",
     "attribute", "ratio", "n_docs", "strategy",
     "prompt_hash", "doc_positions", "confidence_condition",
-    "inline_confidence_requested", "model_slot", "model_provider", "model_id",
+    "distribution_request_assigned", "inline_confidence_requested",
+    "model_slot", "model_provider", "model_id",
     "returned_model_ids", "question", "majority_value", "minority_value",
+    "claim_a_value", "claim_b_value", "claim_a_side", "claim_b_side",
     "response_categories",
-    "n_samples", "n_scored", "modal_category", "modal_count",
+    "n_samples", "n_scored", "n_primary_errors", "n_primary_format_errors",
+    "n_valid_distributions", "distribution_compliance", "modal_category", "modal_count",
+    "conflict_mention_count", "conflict_mention_rate", "abstention_count",
+    "abstention_rate",
     "self_consistency", "self_consistency_all_samples", "modal_tie",
-    "modal_answer", "inline_probabilities",
-    "mean_inline_probability", "posthoc_probability", "posthoc_raw_response",
+    "modal_answer", "inline_distributions", "inline_p_majority",
+    "inline_p_minority", "inline_p_indeterminate", "inline_p_sources_conflict",
+    "mean_p_majority", "mean_p_minority", "mean_p_indeterminate",
+    "mean_p_sources_conflict", "confidence_best_resolution",
+    "posthoc_raw_response", "primary_reasoning_tokens", "posthoc_reasoning_tokens",
+    "reasoning_tokens", "posthoc_status", "posthoc_skipped",
     "posthoc_prompt_tokens", "posthoc_completion_tokens", "posthoc_error",
 ]
+
+
+def dataset_sha256(path=DATA_PATH):
+    """Return a stable fingerprint of the exact dataset bytes used."""
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def validate_protocol_dataset(dataset):
+    """Reject accidental dataset/protocol drift before any API call is made."""
+    entities = dataset.get("entities", [])
+    if len(entities) != 75:
+        raise ValueError(f"protocol requires exactly 75 entities; found {len(entities)}")
+    if len({entity.get("entity_id") for entity in entities}) != 75:
+        raise ValueError("protocol requires 75 unique entity IDs")
+    domains = Counter(entity.get("domain") for entity in entities)
+    if domains != Counter({"banking": 30, "general": 45}):
+        raise ValueError(
+            "protocol requires 30 banking and 45 general entities; "
+            f"found {dict(domains)}"
+        )
+    if tuple(dataset.get("ratios", [])) != RATIO_COUNTERBALANCE_ORDER:
+        raise ValueError(
+            "protocol ratio order must be " + ", ".join(RATIO_COUNTERBALANCE_ORDER)
+        )
+    for entity in entities:
+        if set(entity.get("documents", {})) != set(RATIO_COUNTERBALANCE_ORDER):
+            raise ValueError(
+                f"{entity.get('entity_id')} does not contain exactly the six ratios"
+            )
+        for ratio in RATIO_COUNTERBALANCE_ORDER:
+            expected_majority, expected_minority = map(int, ratio.split(":"))
+            sides = Counter(
+                document_side(
+                    document["text"], entity["majority_value"],
+                    entity["minority_value"],
+                )
+                for document in entity["documents"][ratio]
+            )
+            if sides != Counter(
+                {"MAJ": expected_majority, "MIN": expected_minority}
+            ):
+                raise ValueError(
+                    f"{entity['entity_id']} {ratio} document sides are malformed: "
+                    f"{dict(sides)}"
+                )
+
+
+def claim_label_mapping(entity, ratio, run_seed=20260714, layout_index=1):
+    """Deterministically counterbalance majority/minority across Claim A/B.
+
+    Alternating both entity number and ratio index makes the complete 75 x 6
+    design exactly balanced. Seed/layout parity allows reproducible alternate
+    mappings while retaining that full-design balance.
+    """
+    match = re.search(r"(\d+)$", str(entity["entity_id"]))
+    if match:
+        entity_index = int(match.group(1))
+    else:
+        entity_index = int.from_bytes(
+            hashlib.sha256(str(entity["entity_id"]).encode("utf-8")).digest()[:4],
+            "big",
+        )
+    try:
+        ratio_index = RATIO_COUNTERBALANCE_ORDER.index(ratio)
+    except ValueError:
+        ratio_index = int.from_bytes(
+            hashlib.sha256(str(ratio).encode("utf-8")).digest()[:4], "big"
+        )
+    try:
+        seed_parity = int(run_seed) & 1
+    except (TypeError, ValueError):
+        seed_parity = hashlib.sha256(str(run_seed).encode("utf-8")).digest()[0] & 1
+    majority_is_a = (
+        entity_index + ratio_index + int(layout_index) + seed_parity
+    ) % 2 == 0
+    if majority_is_a:
+        return {
+            "claim_a_value": str(entity["majority_value"]),
+            "claim_b_value": str(entity["minority_value"]),
+            "claim_a_side": "MAJ",
+            "claim_b_side": "MIN",
+        }
+    return {
+        "claim_a_value": str(entity["minority_value"]),
+        "claim_b_value": str(entity["majority_value"]),
+        "claim_a_side": "MIN",
+        "claim_b_side": "MAJ",
+    }
+
+
+def _contains_value(text, value):
+    """Match a value as a complete token/phrase, not inside another value."""
+    value = str(value)
+    if not value:
+        return False
+    prefix = r"(?<!\w)" if value[0].isalnum() else ""
+    suffix = r"(?!\w)" if value[-1].isalnum() else ""
+    return re.search(prefix + re.escape(value) + suffix, str(text)) is not None
+
+
+def document_side(text, majority_value, minority_value):
+    """Return MAJ/MIN/UNK using exact value matching.
+
+    If one value is a phrase containing the other (for example ``$100`` and
+    ``$1000`` or ``Kansas`` and ``Kansas City``), the longer matched value wins.
+    """
+    matches = []
+    for side, value in (("MAJ", majority_value), ("MIN", minority_value)):
+        if _contains_value(text, value):
+            matches.append((side, len(str(value))))
+    if not matches:
+        return "UNK"
+    if len(matches) == 1:
+        return matches[0][0]
+    matches.sort(key=lambda item: item[1], reverse=True)
+    return matches[0][0] if matches[0][1] != matches[1][1] else "UNK"
 
 
 def build_prompt(entity, ratio, strategy="standard", trial_idx=1,
@@ -260,8 +415,8 @@ def build_prompt(entity, ratio, strategy="standard", trial_idx=1,
     """
     docs = list(entity["documents"][ratio])
     
-    # Shuffle documents using a seed combining trial index, entity name, and ratio.
-    # Ensures different trials run with different document layouts to neutralize position bias.
+    # Shuffle documents using the separately logged layout index. All three
+    # primary samples share this exact layout and byte-identical prompt.
     shuffle_rng = py_random.Random(f"{run_seed}-{entity['entity_id']}-{ratio}-trial-{trial_idx}")
     shuffle_rng.shuffle(docs)
     
@@ -269,21 +424,30 @@ def build_prompt(entity, ratio, strategy="standard", trial_idx=1,
     doc_positions = []
     for i, d in enumerate(docs, start=1):
         doc_blocks.append(f"Document {i} (source: {d['source']}):\n{d['text']}")
-        if entity["majority_value"] in d["text"]:
-            doc_positions.append("MAJ")
-        elif entity["minority_value"] in d["text"]:
-            doc_positions.append("MIN")
-        else:
-            doc_positions.append("UNK")
+        doc_positions.append(document_side(
+            d["text"], entity["majority_value"], entity["minority_value"]
+        ))
             
     prompt_core = PROMPT_CORE_TEMPLATE.format(
         documents="\n\n".join(doc_blocks), question=entity["question"]
     )
-    instruction = (
-        PRIMARY_WITH_CONFIDENCE
-        if ask_inline_confidence
-        else PRIMARY_WITHOUT_CONFIDENCE
-    )
+    mapping = claim_label_mapping(entity, ratio, run_seed, trial_idx)
+    if ratio == "4:0":
+        # Preserve the unanimous-context control: do not expose the absent
+        # minority value or request a distribution in this condition.
+        instruction = PRIMARY_UNANIMOUS_ANSWER_ONLY
+    elif ask_inline_confidence:
+        instruction = PRIMARY_WITH_CONFIDENCE.format(
+            claim_a_value=mapping["claim_a_value"],
+            claim_b_value=mapping["claim_b_value"],
+        )
+    else:
+        # Structurally matched answer-only control. It sees the same Claim A/B
+        # labels as the treatment, with only the distribution request omitted.
+        instruction = PRIMARY_WITHOUT_CONFIDENCE.format(
+            claim_a_value=mapping["claim_a_value"],
+            claim_b_value=mapping["claim_b_value"],
+        )
     if strategy == "cot":
         instruction = instruction.replace(
             "Respond with ONLY a JSON object",
@@ -326,24 +490,25 @@ def extract_json_object(raw):
     return found[-1] if found else None
 
 
-def _parse_probability(value):
+def _parse_probability(value, field_name="probability"):
     if isinstance(value, bool):
-        raise ValueError("probability_correct must be numeric")
+        raise ValueError(f"{field_name} must be numeric")
     number = float(value)
     if not number.is_integer() or not 0 <= number <= 100:
-        raise ValueError("probability_correct must be an integer from 0 to 100")
+        raise ValueError(f"{field_name} must be an integer from 0 to 100")
     return int(number)
 
 
-def parse_primary_response(raw, expect_inline_confidence=True):
-    """Parse the answer and the new 0-100 self-report.
-
-    A legacy 1-5 ``confidence`` field is retained only for compatibility and is
-    never promoted to the primary probability field.
-    """
+def parse_primary_response(raw, expect_inline_confidence=True,
+                           claim_mapping=None):
+    """Parse and validate the primary answer/distribution JSON."""
+    probability_fields = (
+        "p_claim_a", "p_claim_b", "p_indeterminate", "p_sources_conflict"
+    )
     parsed = {
-        "answer": "", "probability_correct": "",
-        "format_error": "",
+        "answer": "", "p_claim_a": "", "p_claim_b": "",
+        "p_indeterminate": "", "p_sources_conflict": "",
+        "p_majority": "", "p_minority": "", "format_error": "",
     }
     obj = extract_json_object(raw)
     if obj is None:
@@ -353,19 +518,42 @@ def parse_primary_response(raw, expect_inline_confidence=True):
     if not parsed["answer"]:
         parsed["format_error"] = "JSON object has no answer"
 
-    if "probability_correct" in obj:
-        try:
-            parsed["probability_correct"] = _parse_probability(
-                obj["probability_correct"]
-            )
-        except (TypeError, ValueError) as exc:
-            parsed["format_error"] = str(exc)
-    if expect_inline_confidence and parsed["probability_correct"] == "":
-        parsed["format_error"] = (
-            parsed["format_error"] or "missing probability_correct"
+    supplied_probability_fields = [field for field in probability_fields if field in obj]
+    if expect_inline_confidence:
+        errors = [parsed["format_error"]] if parsed["format_error"] else []
+        for field in probability_fields:
+            if field not in obj:
+                errors.append(f"missing {field}")
+                continue
+            try:
+                parsed[field] = _parse_probability(obj[field], field)
+            except (TypeError, ValueError) as exc:
+                errors.append(str(exc))
+        sum_fields = ("p_claim_a", "p_claim_b", "p_indeterminate")
+        if all(parsed[field] != "" for field in sum_fields):
+            total = sum(parsed[field] for field in sum_fields)
+            if total != 100:
+                errors.append(
+                    "p_claim_a + p_claim_b + p_indeterminate must sum exactly to 100"
+                )
+        if errors:
+            parsed["format_error"] = "; ".join(errors)
+        if claim_mapping and all(
+            parsed[field] != "" for field in ("p_claim_a", "p_claim_b")
+        ):
+            if claim_mapping["claim_a_side"] == "MAJ":
+                parsed["p_majority"] = parsed["p_claim_a"]
+                parsed["p_minority"] = parsed["p_claim_b"]
+            else:
+                parsed["p_majority"] = parsed["p_claim_b"]
+                parsed["p_minority"] = parsed["p_claim_a"]
+    elif supplied_probability_fields:
+        control_error = (
+            "control response unexpectedly reported a probability distribution"
         )
-    if not expect_inline_confidence and parsed["probability_correct"] != "":
-        parsed["format_error"] = "control response unexpectedly reported confidence"
+        parsed["format_error"] = "; ".join(
+            error for error in (parsed["format_error"], control_error) if error
+        )
     return parsed
 
 
@@ -373,8 +561,14 @@ def parse_posthoc_response(raw):
     obj = extract_json_object(raw)
     if obj is None:
         return "", "no valid JSON object"
+    # ``probability_correct`` is accepted only to read interrupted legacy runs;
+    # every new prompt and CSV column uses the truth-neutral field below.
+    field = (
+        "confidence_best_resolution"
+        if "confidence_best_resolution" in obj else "probability_correct"
+    )
     try:
-        return _parse_probability(obj.get("probability_correct")), ""
+        return _parse_probability(obj.get(field), field), ""
     except (TypeError, ValueError) as exc:
         return "", str(exc)
 
@@ -382,11 +576,23 @@ def parse_posthoc_response(raw):
 def parse_response(raw):
     """Backward-compatible parser returning ``(answer, confidence)``."""
     parsed = parse_primary_response(raw, expect_inline_confidence=False)
-    return parsed["answer"], parsed["probability_correct"]
+    obj = extract_json_object(raw) or {}
+    legacy = obj.get("confidence_best_resolution", obj.get("probability_correct", ""))
+    try:
+        legacy = _parse_probability(legacy) if legacy != "" else ""
+    except (TypeError, ValueError):
+        legacy = ""
+    return parsed["answer"], legacy
 
 
 def select_no_inline_confidence_ids(entities, count, seed):
-    """Select a deterministic control stratified by domain."""
+    """Select a deterministic control stratified by domain and attribute.
+
+    With the production 30/45 domain split and count=10 this allocates four
+    banking and six general controls. Each of the four attributes per domain
+    receives at least one control; the two remaining general slots are assigned
+    proportionally and deterministically.
+    """
     if count < 0 or count > len(entities):
         raise ValueError(
             f"no-inline confidence count must be between 0 and {len(entities)}"
@@ -413,25 +619,70 @@ def select_no_inline_confidence_ids(entities, count, seed):
         remaining -= 1
 
     selected = set()
-    for stratum, group in strata.items():
-        ranked = sorted(
-            group,
-            key=lambda entity: hashlib.sha256(
-                f"{seed}|no-inline-confidence|{entity['entity_id']}".encode("utf-8")
-            ).digest(),
-        )
-        selected.update(
-            entity["entity_id"] for entity in ranked[:allocation[stratum]]
-        )
+    for domain, group in strata.items():
+        domain_slots = allocation[domain]
+        attribute_groups = defaultdict(list)
+        for entity in group:
+            attribute_groups[entity.get("attribute", "")].append(entity)
+        attribute_allocation = {attribute: 0 for attribute in attribute_groups}
+        if domain_slots >= len(attribute_groups):
+            attribute_allocation = {
+                attribute: 1 for attribute in attribute_groups
+            }
+        remaining_slots = domain_slots - sum(attribute_allocation.values())
+        targets = {
+            attribute: domain_slots * len(attribute_group) / len(group)
+            for attribute, attribute_group in attribute_groups.items()
+        }
+        while remaining_slots > 0:
+            eligible = [
+                attribute for attribute, attribute_group in attribute_groups.items()
+                if attribute_allocation[attribute] < len(attribute_group)
+            ]
+            if not eligible:
+                break
+            chosen = min(
+                eligible,
+                key=lambda attribute: (
+                    -(targets[attribute] - attribute_allocation[attribute]),
+                    hashlib.sha256(
+                        f"{seed}|attribute-allocation|{domain}|{attribute}".encode(
+                            "utf-8"
+                        )
+                    ).digest(),
+                ),
+            )
+            attribute_allocation[chosen] += 1
+            remaining_slots -= 1
+
+        for attribute, attribute_group in attribute_groups.items():
+            ranked = sorted(
+                attribute_group,
+                key=lambda entity: hashlib.sha256(
+                    f"{seed}|no-inline-confidence|{entity['entity_id']}".encode(
+                        "utf-8"
+                    )
+                ).digest(),
+            )
+            selected.update(
+                entity["entity_id"]
+                for entity in ranked[:attribute_allocation[attribute]]
+            )
     return selected
 
 
-def classify_primary_row(row):
+def score_primary_row(row):
+    """Use the shared scorer for category and the two RQ4 diagnostics."""
     visualizations_dir = str(REPO_ROOT / "visualizations")
     if visualizations_dir not in sys.path:
         sys.path.insert(0, visualizations_dir)
-    from common import classify
-    return classify(row)
+    from common import score_response
+    return score_response(row)
+
+
+def classify_primary_row(row):
+    """Backward-compatible category-only wrapper."""
+    return score_primary_row(row)["category"]
 
 
 def summarize_repeats(rows):
@@ -439,16 +690,18 @@ def summarize_repeats(rows):
     scored = [category for category in categories if category != "UNSCORED"]
     if not scored:
         return {
-            "categories": categories, "n_scored": 0, "modal_category": "",
+            "categories": categories, "n_scored": 0,
+            "modal_category": "UNSCORED",
             "modal_count": 0, "self_consistency": "",
-            "self_consistency_all_samples": 0.0, "modal_tie": "",
-            "representative": rows[0],
+            "self_consistency_all_samples": 0.0, "modal_tie": 0,
+            "representative": None,
         }
     counts = Counter(scored)
     modal_count = max(counts.values())
     tied = {category for category, value in counts.items() if value == modal_count}
-    modal_category = next(category for category in scored if category in tied)
-    representative = next(
+    is_tie = len(tied) > 1
+    modal_category = "TIE" if is_tie else next(iter(tied))
+    representative = None if is_tie else next(
         row for row in rows if row["response_category"] == modal_category
     )
     return {
@@ -458,14 +711,15 @@ def summarize_repeats(rows):
         "modal_count": modal_count,
         "self_consistency": modal_count / len(scored),
         "self_consistency_all_samples": modal_count / len(rows),
-        "modal_tie": int(len(tied) > 1),
+        "modal_tie": int(is_tie),
         "representative": representative,
     }
 
 
 # ---------------------------------------------------------------------------
 # Model callers: each returns
-# (raw_text, prompt_tokens, completion_tokens, API-returned model id)
+# (raw_text, prompt_tokens, billed_completion_tokens, reasoning_tokens,
+#  API-returned model id)
 
 def call_with_backoff(fn, max_retries=MAX_RETRIES, base_delay=1.0, max_delay=65.0):
     """Retry `fn` on transient errors (429 / 5xx / connection) with exponential
@@ -523,6 +777,16 @@ def call_with_backoff(fn, max_retries=MAX_RETRIES, base_delay=1.0, max_delay=65.
     raise last
 
 
+def gemini_usage_tokens(usage):
+    """Split Gemini usage while keeping thoughts in billed completion tokens."""
+    if not usage:
+        return "", "", ""
+    prompt_tokens = int(getattr(usage, "prompt_token_count", 0) or 0)
+    visible_tokens = int(getattr(usage, "candidates_token_count", 0) or 0)
+    reasoning_tokens = int(getattr(usage, "thoughts_token_count", 0) or 0)
+    return prompt_tokens, visible_tokens + reasoning_tokens, reasoning_tokens
+
+
 def call_gemini(client, model_id, prompt, system_prompt=SYSTEM_PROMPT,
                 temperature=1.0):
     from google.genai import types
@@ -541,11 +805,9 @@ def call_gemini(client, model_id, prompt, system_prompt=SYSTEM_PROMPT,
         )
     resp = call_with_backoff(_do)
     text = resp.text or ""
-    usage = resp.usage_metadata
-    ptok = usage.prompt_token_count if usage else ""
-    ctok = usage.candidates_token_count if usage else ""
+    ptok, ctok, rtok = gemini_usage_tokens(resp.usage_metadata)
     returned_model = getattr(resp, "model_version", "") or model_id
-    return text, ptok, ctok, returned_model
+    return text, ptok, ctok, rtok, returned_model
 
 
 def openrouter_reasoning_param(model_id):
@@ -564,6 +826,31 @@ def openrouter_reasoning_param(model_id):
     return {"effort": OPENROUTER_DEFAULT_EFFORT}
 
 
+def openrouter_max_tokens(model_id):
+    """Leave Claude visible-output room beyond its reasoning-token budget."""
+    mid = model_id.lower()
+    if "claude" in mid or "anthropic" in mid:
+        return OPENROUTER_CLAUDE_MAX_TOKENS
+    return OPENROUTER_DEFAULT_MAX_TOKENS
+
+
+def openrouter_reasoning_tokens(usage):
+    """Read OpenRouter's optional reasoning-token detail without double-counting."""
+    if not usage:
+        return ""
+    details = getattr(usage, "completion_tokens_details", None)
+    if details is None and isinstance(usage, dict):
+        details = usage.get("completion_tokens_details")
+    if details is None:
+        return ""
+    value = (
+        details.get("reasoning_tokens")
+        if isinstance(details, dict)
+        else getattr(details, "reasoning_tokens", None)
+    )
+    return int(value) if value is not None else ""
+
+
 def call_openrouter(client, model_id, prompt, system_prompt=SYSTEM_PROMPT,
                     temperature=1.0):
     # OpenRouter exposes an OpenAI-compatible chat completions endpoint, so this
@@ -573,7 +860,7 @@ def call_openrouter(client, model_id, prompt, system_prompt=SYSTEM_PROMPT,
     # through extra_body rather than a typed SDK parameter.
     resp = client.chat.completions.create(
         model=model_id,
-        max_tokens=OPENROUTER_MAX_TOKENS,
+        max_tokens=openrouter_max_tokens(model_id),
         temperature=temperature,
         messages=[
             {"role": "system", "content": system_prompt},
@@ -582,10 +869,14 @@ def call_openrouter(client, model_id, prompt, system_prompt=SYSTEM_PROMPT,
         extra_body={"reasoning": openrouter_reasoning_param(model_id)},
     )
     usage = resp.usage
-    return (resp.choices[0].message.content or "",
-            usage.prompt_tokens if usage else "",
-            usage.completion_tokens if usage else "",
-            getattr(resp, "model", "") or model_id)
+    return (
+        resp.choices[0].message.content or "",
+        usage.prompt_tokens if usage else "",
+        # OpenRouter completion_tokens already includes reasoning tokens.
+        usage.completion_tokens if usage else "",
+        openrouter_reasoning_tokens(usage),
+        getattr(resp, "model", "") or model_id,
+    )
 
 
 def model_family_matches(slot, returned_model_id):
@@ -611,12 +902,25 @@ class MockClient:
     def call(self, prompt, entity, strategy="standard", phase="primary",
              ask_inline_confidence=True):
         answer = entity["majority_value"]
+        claim_a_match = re.search(r"^Claim A: (.*)$", prompt, re.MULTILINE)
+        majority_is_a = bool(
+            claim_a_match and claim_a_match.group(1).strip() == str(answer)
+        )
+
+        def add_mock_distribution(payload):
+            payload.update(
+                p_claim_a=90 if majority_is_a else 5,
+                p_claim_b=5 if majority_is_a else 90,
+                p_indeterminate=5,
+                p_sources_conflict=80,
+            )
+
         if phase == "posthoc":
-            raw = json.dumps({"probability_correct": 80})
+            raw = json.dumps({"confidence_best_resolution": 80})
         elif strategy == "cot":
             payload = {"answer": answer}
             if ask_inline_confidence:
-                payload["probability_correct"] = 90
+                add_mock_distribution(payload)
             raw = (
                 "Thinking Process:\n"
                 f"1. The question asks about {entity['question']}.\n"
@@ -627,7 +931,7 @@ class MockClient:
         else:
             payload = {"answer": answer}
             if ask_inline_confidence:
-                payload["probability_correct"] = 90
+                add_mock_distribution(payload)
             raw = json.dumps(payload)
             
         sys_prompt = (
@@ -635,8 +939,10 @@ class MockClient:
             else SYSTEM_PROMPT_COT if strategy == "cot"
             else SYSTEM_PROMPT
         )
-        return (raw, len(sys_prompt + prompt) // 4, len(raw) // 4,
-                f"{self.provider}-MOCK")
+        return (
+            raw, len(sys_prompt + prompt) // 4, len(raw) // 4, 0,
+            f"{self.provider}-MOCK",
+        )
 
 
 def main():
@@ -675,7 +981,8 @@ def main():
     ap.add_argument(
         "--no-inline-confidence-entities", type=int,
         default=DEFAULT_NO_INLINE_CONFIDENCE_ENTITIES,
-        help="deterministic entities that omit inline confidence (default: 10)",
+        help="deterministic entity arm omitting conflict-ratio distributions "
+             "(default: 37; all 4:0 prompts are answer-only)",
     )
     ap.add_argument(
         "--layout-index", type=int, default=1,
@@ -707,7 +1014,12 @@ def main():
         )
 
     dataset = json.loads(DATA_PATH.read_text(encoding="utf-8"))
+    try:
+        validate_protocol_dataset(dataset)
+    except ValueError as exc:
+        ap.error(str(exc))
     full_entities = dataset["entities"]
+    dataset_fingerprint = dataset_sha256()
 
     run_seed = dataset.get("seed", 20260714)
     try:
@@ -875,7 +1187,7 @@ def main():
         if entity["entity_id"] in no_inline_ids
     )
     print(
-        f"Inline-confidence control: {len(no_inline_ids)} of "
+        f"Distribution-request assignment control: {len(no_inline_ids)} of "
         f"{len(full_entities)} full-dataset entities; {len(selected_controls)} "
         "are present in this run."
     )
@@ -899,19 +1211,40 @@ def main():
     condition_path.parent.mkdir(parents=True, exist_ok=True)
 
 
-    planned_total = (
-        len(entities) * len(ratios) * len(callers) * (args.trials + 1)
-    )
+    planned_primary = len(entities) * len(ratios) * len(callers) * args.trials
+    planned_posthoc_max = len(entities) * len(ratios) * len(callers)
+    planned_total = planned_primary + planned_posthoc_max
     done = 0
+    primary_done = 0
+    posthoc_done = 0
+    posthoc_skipped = 0
     hard_errors = 0
+    primary_errors = 0
+    primary_format_errors = 0
+    distributions_expected = 0
+    valid_distributions = 0
     usage = defaultdict(lambda: [0, 0, 0])
     condition_rows = []
 
     def base_raw_row(entity, ratio, prompt, doc_positions, confidence_condition,
-                     ask_inline, slot, phase, trial_index=""):
+                     distribution_assigned, ask_inline, slot, phase,
+                     trial_index=""):
         spec = callers[slot]
+        mapping = (
+            claim_label_mapping(
+                entity, ratio, run_seed=run_seed, layout_index=args.layout_index
+            )
+            if ratio != "4:0" else {
+                "claim_a_value": "", "claim_b_value": "",
+                "claim_a_side": "", "claim_b_side": "",
+            }
+        )
         return {
             "run_id": run_id,
+            "protocol_version": PROTOCOL_VERSION,
+            "dataset_sha256": dataset_fingerprint,
+            "run_seed": run_seed,
+            "layout_index": args.layout_index,
             "timestamp_utc": datetime.now(timezone.utc).isoformat(),
             "entity_id": entity["entity_id"],
             "entity_name": entity["entity_name"],
@@ -925,6 +1258,7 @@ def main():
             "prompt_hash": prompt_digest(prompt),
             "doc_positions": json.dumps(doc_positions),
             "confidence_condition": confidence_condition,
+            "distribution_request_assigned": int(distribution_assigned),
             "inline_confidence_requested": int(ask_inline),
             "model_slot": slot,
             "model_provider": spec["provider"],
@@ -933,14 +1267,27 @@ def main():
             "question": entity["question"],
             "majority_value": entity["majority_value"],
             "minority_value": entity["minority_value"],
+            "claim_a_value": mapping["claim_a_value"],
+            "claim_b_value": mapping["claim_b_value"],
+            "claim_a_side": mapping["claim_a_side"],
+            "claim_b_side": mapping["claim_b_side"],
             "response_category": "",
+            "mentions_conflict": "",
+            "abstained": "",
             "raw_response": "",
             "parsed_answer": "",
-            "parsed_confidence": "",
+            "p_claim_a": "",
+            "p_claim_b": "",
+            "p_indeterminate": "",
+            "p_sources_conflict": "",
+            "p_majority": "",
+            "p_minority": "",
+            "confidence_best_resolution": "",
             "confidence_scale": "",
             "format_error": "",
             "prompt_tokens": "",
             "completion_tokens": "",
+            "reasoning_tokens": "",
             "error": "",
         }
 
@@ -950,9 +1297,8 @@ def main():
         values[1] += int(prompt_tokens or 0)
         values[2] += int(completion_tokens or 0)
 
-    # Raw rows are flushed after every billed call. Condition rows are also
-    # flushed as soon as each modal/post-hoc result is available; after the run,
-    # that file is rewritten once with cross-validated Platt scores added.
+    # Raw rows are flushed after every billed call. Condition rows are flushed
+    # as soon as each modal/post-hoc result is available.
     with out_path.open("w", newline="", encoding="utf-8") as raw_file, \
             condition_path.open("w", newline="", encoding="utf-8") as condition_file, \
             ThreadPoolExecutor(max_workers=max(len(callers), 1)) as pool:
@@ -964,12 +1310,21 @@ def main():
         condition_writer.writeheader()
 
         for entity in entities:
-            ask_inline = entity["entity_id"] not in no_inline_ids
-            confidence_condition = (
-                "inline_plus_posthoc" if ask_inline
-                else "posthoc_only_control"
-            )
+            distribution_assigned = entity["entity_id"] not in no_inline_ids
             for ratio in ratios:
+                ask_inline = distribution_assigned and ratio != "4:0"
+                if ratio == "4:0":
+                    confidence_condition = "unanimous_answer_only_plus_posthoc"
+                    claim_mapping = None
+                else:
+                    confidence_condition = (
+                        "rich_distribution_plus_posthoc" if ask_inline
+                        else "matched_answer_only_plus_posthoc_control"
+                    )
+                    claim_mapping = claim_label_mapping(
+                        entity, ratio, run_seed=run_seed,
+                        layout_index=args.layout_index,
+                    )
                 prompt, doc_positions, prompt_core = build_prompt(
                     entity, ratio, strategy=args.strategy,
                     trial_idx=args.layout_index, run_seed=run_seed,
@@ -987,14 +1342,17 @@ def main():
                     for slot, spec in callers.items():
                         row = base_raw_row(
                             entity, ratio, prompt, doc_positions,
-                            confidence_condition, ask_inline, slot, "primary",
-                            trial_index,
+                            confidence_condition, distribution_assigned,
+                            ask_inline, slot, "primary", trial_index,
                         )
                         try:
-                            raw, ptok, ctok, returned_model = futures[slot].result()
+                            raw, ptok, ctok, rtok, returned_model = (
+                                futures[slot].result()
+                            )
                             row.update(
                                 raw_response=raw, prompt_tokens=ptok,
                                 completion_tokens=ctok,
+                                reasoning_tokens=rtok,
                                 returned_model_id=returned_model,
                             )
                             record_usage(spec["model_id"], ptok, ctok)
@@ -1003,25 +1361,45 @@ def main():
                                     "model_mismatch: requested "
                                     f"{spec['model_id']}, API returned {returned_model}"
                                 )
-                            parsed = parse_primary_response(raw, ask_inline)
+                            parsed = parse_primary_response(
+                                raw, ask_inline, claim_mapping=claim_mapping
+                            )
                             row.update(
                                 parsed_answer=parsed["answer"],
-                                parsed_confidence=parsed["probability_correct"],
+                                p_claim_a=parsed["p_claim_a"],
+                                p_claim_b=parsed["p_claim_b"],
+                                p_indeterminate=parsed["p_indeterminate"],
+                                p_sources_conflict=parsed["p_sources_conflict"],
+                                p_majority=parsed["p_majority"],
+                                p_minority=parsed["p_minority"],
                                 confidence_scale=(
-                                    "0-100_probability"
-                                    if parsed["probability_correct"] != "" else ""
+                                    "rich_distribution_0-100"
+                                    if parsed["p_claim_a"] != "" else ""
                                 ),
                                 format_error=parsed["format_error"],
                             )
                         except Exception as exc:
                             row["error"] = f"{type(exc).__name__}: {exc}"
-                        row["response_category"] = classify_primary_row(row)
+                        score = score_primary_row(row)
+                        row.update(
+                            response_category=score["category"],
+                            mentions_conflict=score["mentions_conflict"],
+                            abstained=score["abstained"],
+                        )
                         if row["error"]:
                             hard_errors += 1
+                            primary_errors += 1
+                        if row["format_error"]:
+                            primary_format_errors += 1
+                        if ask_inline:
+                            distributions_expected += 1
+                            if not row["error"] and not row["format_error"]:
+                                valid_distributions += 1
                         raw_writer.writerow(row)
                         raw_file.flush()
                         repeated[slot].append(row)
                         done += 1
+                        primary_done += 1
                         print(
                             f"[{done}/{planned_total}] {entity['entity_id']} "
                             f"{ratio} sample {trial_index} {slot} "
@@ -1036,8 +1414,11 @@ def main():
                 posthoc_prompts = {}
                 posthoc_futures = {}
                 for slot, summary in summaries.items():
-                    modal_answer = summary["representative"]["parsed_answer"]
-                    if not summary["modal_category"] or not modal_answer:
+                    representative = summary["representative"]
+                    modal_answer = (
+                        representative["parsed_answer"] if representative else ""
+                    )
+                    if summary["modal_category"] in ("TIE", "UNSCORED") or not modal_answer:
                         continue
                     posthoc_prompt = build_posthoc_prompt(
                         prompt_core, modal_answer
@@ -1050,28 +1431,41 @@ def main():
 
                 for slot, spec in callers.items():
                     summary = summaries[slot]
-                    posthoc_probability = ""
+                    confidence_best_resolution = ""
                     posthoc_raw = ""
                     posthoc_ptok = ""
                     posthoc_ctok = ""
+                    posthoc_rtok = ""
                     posthoc_returned_model = ""
                     posthoc_error = ""
+                    posthoc_status = ""
+                    was_posthoc_skipped = 0
                     if slot not in posthoc_futures:
-                        posthoc_error = "posthoc_skipped_no_modal_answer"
+                        posthoc_skipped += 1
+                        was_posthoc_skipped = 1
+                        if summary["modal_category"] == "TIE":
+                            posthoc_status = "skipped_modal_tie"
+                        elif summary["modal_category"] == "UNSCORED":
+                            posthoc_status = "skipped_all_unscored"
+                        else:
+                            posthoc_status = "skipped_no_modal_answer"
                     else:
                         posthoc_prompt = posthoc_prompts[slot]
                         row = base_raw_row(
                             entity, ratio, posthoc_prompt, doc_positions,
-                            confidence_condition, ask_inline, slot, "posthoc",
+                            confidence_condition, distribution_assigned,
+                            ask_inline, slot, "posthoc",
                         )
                         try:
-                            posthoc_raw, posthoc_ptok, posthoc_ctok, returned_model = (
-                                posthoc_futures[slot].result()
-                            )
+                            (
+                                posthoc_raw, posthoc_ptok, posthoc_ctok,
+                                posthoc_rtok, returned_model,
+                            ) = posthoc_futures[slot].result()
                             row.update(
                                 raw_response=posthoc_raw,
                                 prompt_tokens=posthoc_ptok,
                                 completion_tokens=posthoc_ctok,
+                                reasoning_tokens=posthoc_rtok,
                                 returned_model_id=returned_model,
                             )
                             posthoc_returned_model = returned_model
@@ -1087,38 +1481,90 @@ def main():
                                 posthoc_raw
                             )
                             row.update(
-                                parsed_confidence=probability,
+                                confidence_best_resolution=probability,
                                 confidence_scale=(
-                                    "0-100_probability" if probability != "" else ""
+                                    "0-100_best_resolution"
+                                    if probability != "" else ""
                                 ),
                                 format_error=format_error,
                             )
                             if row["error"]:
                                 posthoc_error = row["error"]
+                                posthoc_status = "error"
                             elif format_error:
                                 posthoc_error = format_error
+                                posthoc_status = "format_error"
                             else:
-                                posthoc_probability = probability
+                                confidence_best_resolution = probability
+                                posthoc_status = "completed"
                         except Exception as exc:
                             row["error"] = f"{type(exc).__name__}: {exc}"
                             posthoc_error = row["error"]
+                            posthoc_status = "error"
                         if row["error"]:
                             hard_errors += 1
                         raw_writer.writerow(row)
                         raw_file.flush()
                         done += 1
+                        posthoc_done += 1
                         print(
                             f"[{done}/{planned_total}] {entity['entity_id']} "
                             f"{ratio} posthoc {slot} ({spec['model_id']})"
                             f"{' ERROR' if posthoc_error else ''}"
                         )
 
-                    inline_probabilities = [
-                        int(row["parsed_confidence"])
-                        for row in repeated[slot]
-                        if ask_inline and row["parsed_confidence"] != ""
+                    distributions = [
+                        {
+                            "p_claim_a": int(primary_row["p_claim_a"]),
+                            "p_claim_b": int(primary_row["p_claim_b"]),
+                            "p_indeterminate": int(primary_row["p_indeterminate"]),
+                            "p_sources_conflict": int(primary_row["p_sources_conflict"]),
+                            "p_majority": int(primary_row["p_majority"]),
+                            "p_minority": int(primary_row["p_minority"]),
+                        }
+                        for primary_row in repeated[slot]
+                        if ask_inline and not primary_row["format_error"]
+                        and not primary_row["error"] and all(
+                            primary_row[field] != "" for field in (
+                                "p_claim_a", "p_claim_b", "p_indeterminate",
+                                "p_sources_conflict", "p_majority", "p_minority",
+                            )
+                        )
                     ]
+                    inline_p_majority = [d["p_majority"] for d in distributions]
+                    inline_p_minority = [d["p_minority"] for d in distributions]
+                    inline_p_indeterminate = [d["p_indeterminate"] for d in distributions]
+                    inline_p_sources_conflict = [d["p_sources_conflict"] for d in distributions]
+
+                    n_primary_errors = sum(bool(r["error"]) for r in repeated[slot])
+                    n_primary_format_errors = sum(
+                        bool(r["format_error"]) for r in repeated[slot]
+                    )
+                    conflict_mention_count = sum(
+                        int(r["mentions_conflict"] or 0) for r in repeated[slot]
+                        if r["response_category"] != "UNSCORED"
+                    )
+                    abstention_count = sum(
+                        int(r["abstained"] or 0) for r in repeated[slot]
+                        if r["response_category"] != "UNSCORED"
+                    )
+                    diagnostic_denominator = summary["n_scored"]
+                    primary_reasoning = [
+                        int(r["reasoning_tokens"])
+                        for r in repeated[slot] if r["reasoning_tokens"] != ""
+                    ]
+                    all_reasoning = list(primary_reasoning)
+                    if posthoc_rtok != "":
+                        all_reasoning.append(int(posthoc_rtok))
+
+                    def mean_or_blank(values):
+                        return round(sum(values) / len(values), 2) if values else ""
+
                     modal_category = summary["modal_category"]
+                    modal_answer = (
+                        summary["representative"]["parsed_answer"]
+                        if summary["representative"] else ""
+                    )
                     returned_model_ids = {
                         row["returned_model_id"] for row in repeated[slot]
                         if row["returned_model_id"]
@@ -1127,6 +1573,10 @@ def main():
                         returned_model_ids.add(posthoc_returned_model)
                     condition = {
                         "run_id": run_id,
+                        "protocol_version": PROTOCOL_VERSION,
+                        "dataset_sha256": dataset_fingerprint,
+                        "run_seed": run_seed,
+                        "layout_index": args.layout_index,
                         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
                         "entity_id": entity["entity_id"],
                         "entity_name": entity["entity_name"],
@@ -1138,6 +1588,7 @@ def main():
                         "prompt_hash": prompt_digest(prompt),
                         "doc_positions": json.dumps(doc_positions),
                         "confidence_condition": confidence_condition,
+                        "distribution_request_assigned": int(distribution_assigned),
                         "inline_confidence_requested": int(ask_inline),
                         "model_slot": slot,
                         "model_provider": spec["provider"],
@@ -1148,24 +1599,66 @@ def main():
                         "question": entity["question"],
                         "majority_value": entity["majority_value"],
                         "minority_value": entity["minority_value"],
+                        "claim_a_value": (
+                            claim_mapping["claim_a_value"] if claim_mapping else ""
+                        ),
+                        "claim_b_value": (
+                            claim_mapping["claim_b_value"] if claim_mapping else ""
+                        ),
+                        "claim_a_side": (
+                            claim_mapping["claim_a_side"] if claim_mapping else ""
+                        ),
+                        "claim_b_side": (
+                            claim_mapping["claim_b_side"] if claim_mapping else ""
+                        ),
                         "response_categories": json.dumps(summary["categories"]),
                         "n_samples": len(repeated[slot]),
                         "n_scored": summary["n_scored"],
+                        "n_primary_errors": n_primary_errors,
+                        "n_primary_format_errors": n_primary_format_errors,
+                        "n_valid_distributions": len(distributions),
+                        "distribution_compliance": (
+                            round(len(distributions) / len(repeated[slot]), 4)
+                            if ask_inline else ""
+                        ),
                         "modal_category": modal_category,
                         "modal_count": summary["modal_count"],
+                        "conflict_mention_count": conflict_mention_count,
+                        "conflict_mention_rate": (
+                            round(conflict_mention_count / diagnostic_denominator, 4)
+                            if diagnostic_denominator else ""
+                        ),
+                        "abstention_count": abstention_count,
+                        "abstention_rate": (
+                            round(abstention_count / diagnostic_denominator, 4)
+                            if diagnostic_denominator else ""
+                        ),
                         "self_consistency": summary["self_consistency"],
                         "self_consistency_all_samples": summary[
                             "self_consistency_all_samples"
                         ],
                         "modal_tie": summary["modal_tie"],
-                        "modal_answer": summary["representative"]["parsed_answer"],
-                        "inline_probabilities": json.dumps(inline_probabilities),
-                        "mean_inline_probability": (
-                            round(sum(inline_probabilities) / len(inline_probabilities), 2)
-                            if inline_probabilities else ""
+                        "modal_answer": modal_answer,
+                        "inline_distributions": json.dumps(distributions),
+                        "inline_p_majority": json.dumps(inline_p_majority),
+                        "inline_p_minority": json.dumps(inline_p_minority),
+                        "inline_p_indeterminate": json.dumps(inline_p_indeterminate),
+                        "inline_p_sources_conflict": json.dumps(inline_p_sources_conflict),
+                        "mean_p_majority": mean_or_blank(inline_p_majority),
+                        "mean_p_minority": mean_or_blank(inline_p_minority),
+                        "mean_p_indeterminate": mean_or_blank(inline_p_indeterminate),
+                        "mean_p_sources_conflict": mean_or_blank(
+                            inline_p_sources_conflict
                         ),
-                        "posthoc_probability": posthoc_probability,
+                        "confidence_best_resolution": confidence_best_resolution,
                         "posthoc_raw_response": posthoc_raw,
+                        "primary_reasoning_tokens": json.dumps(primary_reasoning),
+                        "posthoc_reasoning_tokens": posthoc_rtok,
+                        "reasoning_tokens": (
+                            sum(all_reasoning) if all_reasoning else ""
+                        ),
+                        "posthoc_status": posthoc_status,
+                        "posthoc_skipped": was_posthoc_skipped,
                         "posthoc_prompt_tokens": posthoc_ptok,
                         "posthoc_completion_tokens": posthoc_ctok,
                         "posthoc_error": posthoc_error,
@@ -1175,10 +1668,31 @@ def main():
                     condition_file.flush()
 
 
+    print(f"\nDone. {done} live/mock API calls completed.")
+    print(f"Primary calls: {primary_done}/{planned_primary} completed")
     print(
-        f"\nDone. {done} live/mock calls completed out of {planned_total} "
-        f"planned; {hard_errors} hard/model-routing errors."
+        f"Post-hoc conditions: {posthoc_done} calls completed + "
+        f"{posthoc_skipped} intentionally skipped = "
+        f"{posthoc_done + posthoc_skipped}/{planned_posthoc_max} accounted for"
     )
+    print(
+        f"Maximum call plan accounted for: {done} actual + "
+        f"{posthoc_skipped} intentional skips = {done + posthoc_skipped}/"
+        f"{planned_total}"
+    )
+    print(
+        f"Errors: {hard_errors} hard/model-routing total; "
+        f"{primary_errors} primary API/routing; "
+        f"{primary_format_errors} primary format"
+    )
+    if distributions_expected:
+        print(
+            f"Distribution compliance: {valid_distributions}/"
+            f"{distributions_expected} "
+            f"({valid_distributions / distributions_expected:.1%})"
+        )
+    else:
+        print("Distribution compliance: n/a (no distributions requested)")
     print(f"Raw call log: {out_path}")
     print(f"Condition results: {condition_path}")
 

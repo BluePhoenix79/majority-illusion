@@ -427,3 +427,17 @@ fire test of the revised collector remain next; no result is represented as a co
 - Purged obsolete legacy files (e.g. esearch_brief.md, AGENT_HANDOFF.md, esults/run_standard_1.csv, esults/run_standard_2.csv).
 - Stripped Platt calibration and Brier score logic completely from the harness (harness/run_experiment.py, 	ests/test_new_approach.py) and visualization scripts.
 - Removed 	rue_value, 	rue_side, and all legacy 'correct/wrong' language from un_experiment.py, visualization scripts, and manuscript.md.
+
+## [Jul 17, 1:05 AM] — Kartigan
+Committed: Not yet — balanced the RQ4 experiment at 38 structured-elicitation
+entities and 37 matched answer-only controls under protocol v3.
+Files: README.md, harness/run_experiment.py, tests/, analysis/, visualizations/
+Status: 32 offline tests plus balanced three-model mock collection, strict
+analysis, and RQ4 figure smoke pass. No live API collection was run.
+
+## [Jul 17, 1:37 AM] — Kartigan
+Committed: Finalized the balanced 38/37 structured-elicitation experiment,
+condition-level analysis, diagnostics, and treatment-effect visualizations.
+Files: README.md, harness/, tests/, analysis/, visualizations/, requirements.txt
+Status: All 32 offline tests pass. Ready for the fresh three-model collection;
+the earlier DeepSeek observation remains an exploratory pilot pending confirmation.
