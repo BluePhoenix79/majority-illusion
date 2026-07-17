@@ -1,8 +1,8 @@
 """Generate the synthetic entity dataset for the Majority Illusion experiment.
 
-Produces data/entities.json: ~50 fictional entities (subset banking-themed),
-each with a factual question, two conflicting answer values (majority vs
-minority), and per-ratio document sets:
+Produces data/entities.json: 100 fictional entities (40 banking-themed and 60
+general), each with a factual question, two conflicting answer values
+(majority vs minority), and per-ratio document sets:
 
   4:0  -> 4 docs, all supporting the majority value (control)   majority share 1.00
   3:1  -> 3 majority docs, 1 minority doc                       majority share 0.75
@@ -28,14 +28,34 @@ Usage:
     python data/generate_dataset.py            # writes data/entities.json
 """
 
-import hashlib
 import json
 import random
 from pathlib import Path
 
 SEED = 20260714
-N_BANKING = 20
-N_GENERAL = 30
+N_BANKING = 40
+N_GENERAL = 60
+
+# The dataset is built in append-only BATCHES, each drawn from its own
+# deterministic RNG stream. A batch NEVER derives its seed or its size from a
+# running total: doing so would advance a shared RNG (or change a seed string)
+# and silently regenerate every earlier entity's question, values, and
+# documents. To grow the dataset you APPEND a new row to BATCHES -- you never
+# edit an existing row. That is what keeps E001-E075 byte-for-byte identical to
+# the committed data as the set grows to 100.
+BASE_N_BANKING = 20
+BASE_N_GENERAL = 30
+
+# (rng_seed, n_banking, n_general) in generation order. entity_id is assigned by
+# global position (batch 1 -> E001.., batch 2 -> E051.., batch 3 -> E076..), and
+# make_specs emits all banking entities before all general ones within a batch.
+# The first two seeds are FROZEN at their historical literal values so the
+# original 50 and the first 25-entity expansion regenerate unchanged.
+BATCHES = [
+    (SEED, BASE_N_BANKING, BASE_N_GENERAL),          # E001-E050 (legacy stream)
+    (f"{SEED}|entity-expansion|75", 10, 15),         # E051-E075 (+10 bank/+15 gen)
+    (f"{SEED}|entity-expansion-2|100", 10, 15),      # E076-E100 (+10 bank/+15 gen)
+]
 
 RATIOS = {
     "4:0": (4, 0),
@@ -211,83 +231,79 @@ def make_documents(rng, name, domain_desc, claim_template, maj_value, min_value)
     return docs_by_ratio
 
 
-def assign_ground_truth(entities):
-    """Attach an exactly counterbalanced truth label independent of document ratio.
-
-    ``majority_value`` and ``minority_value`` describe the injected evidence,
-    not correctness.  A separate stable hash ranks entities, then half are
-    assigned majority-as-true and half minority-as-true.  This keeps truth
-    independent of which claim is repeated more often and remains deterministic
-    when the dataset is regenerated.  For an odd entity count, MAJ receives the
-    single extra assignment.
-    """
-    ranked = sorted(
-        entities,
-        key=lambda entity: hashlib.sha256(
-            f"{SEED}|ground-truth|{entity['entity_id']}".encode("utf-8")
-        ).digest(),
-    )
-    majority_true_count = (len(ranked) + 1) // 2
-    majority_true_ids = {
-        entity["entity_id"] for entity in ranked[:majority_true_count]
-    }
-    for entity in entities:
-        true_side = "MAJ" if entity["entity_id"] in majority_true_ids else "MIN"
-        entity["true_side"] = true_side
-        entity["true_value"] = (
-            entity["majority_value"]
-            if true_side == "MAJ"
-            else entity["minority_value"]
-        )
-
-
-def main():
-    rng = random.Random(SEED)
-    entities = []
-
+def make_specs(rng, n_banking, n_general, used_names):
+    """Create unique fictional entity specifications with a supplied RNG."""
     specs = []
-    used_names = set()
-    for i in range(N_BANKING):
+    for _ in range(n_banking):
         while True:
             name = f"{rng.choice(BANKING_FIRST)} {rng.choice(BANKING_SECOND)}"
             if name not in used_names:
                 used_names.add(name)
                 break
         specs.append((name, "banking", "regional financial institution"))
-    for i in range(N_GENERAL):
+    for _ in range(n_general):
         while True:
             name = f"{rng.choice(GENERAL_FIRST)} {rng.choice(GENERAL_SECOND)}"
             if name not in used_names:
                 used_names.add(name)
                 break
         specs.append((name, "general", "mid-size company"))
+    return specs
 
-    for idx, (name, domain, domain_desc) in enumerate(specs, start=1):
-        if domain == "banking":
-            attribute, q_tmpl, claim_tmpl, value_gen = BANKING_ATTRIBUTES[idx % len(BANKING_ATTRIBUTES)]
-            account = rng.choice(ACCOUNT_TYPES)
-            act = rng.choice(ACT_NAMES)
-            q_formatted = q_tmpl.format(name=name, account=account, act=act)
-            claim_tmpl_formatted = claim_tmpl.format(name="{name}", value="{value}", account=account, act=act)
-        else:
-            attribute, q_tmpl, claim_tmpl, value_gen = GENERAL_ATTRIBUTES[idx % len(GENERAL_ATTRIBUTES)]
-            q_formatted = q_tmpl.format(name=name)
-            claim_tmpl_formatted = claim_tmpl
 
-        maj_value, min_value = value_gen(rng)
-        entities.append({
-            "entity_id": f"E{idx:03d}",
-            "entity_name": name,
-            "domain": domain,
-            "attribute": attribute,
-            "question": q_formatted,
-            "majority_value": maj_value,
-            "minority_value": min_value,
-            "documents": make_documents(rng, name, domain_desc, claim_tmpl_formatted,
-                                        maj_value, min_value),
-        })
+def make_entity(rng, idx, spec):
+    """Render one entity and all ratio-specific documents."""
+    name, domain, domain_desc = spec
+    if domain == "banking":
+        attribute, q_tmpl, claim_tmpl, value_gen = BANKING_ATTRIBUTES[
+            idx % len(BANKING_ATTRIBUTES)
+        ]
+        account = rng.choice(ACCOUNT_TYPES)
+        act = rng.choice(ACT_NAMES)
+        q_formatted = q_tmpl.format(name=name, account=account, act=act)
+        claim_tmpl_formatted = claim_tmpl.format(
+            name="{name}", value="{value}", account=account, act=act
+        )
+    else:
+        attribute, q_tmpl, claim_tmpl, value_gen = GENERAL_ATTRIBUTES[
+            idx % len(GENERAL_ATTRIBUTES)
+        ]
+        q_formatted = q_tmpl.format(name=name)
+        claim_tmpl_formatted = claim_tmpl
 
-    assign_ground_truth(entities)
+    maj_value, min_value = value_gen(rng)
+    return {
+        "entity_id": f"E{idx:03d}",
+        "entity_name": name,
+        "domain": domain,
+        "attribute": attribute,
+        "question": q_formatted,
+        "majority_value": maj_value,
+        "minority_value": min_value,
+        "documents": make_documents(
+            rng, name, domain_desc, claim_tmpl_formatted,
+            maj_value, min_value,
+        ),
+    }
+
+
+def main():
+    entities = []
+    used_names = set()
+
+    # Each batch runs on its own RNG stream, appended in order. Names accumulate
+    # in used_names across batches so later batches never collide with earlier
+    # ones; entity_id follows global position (len(entities) + 1).
+    for seed, n_banking, n_general in BATCHES:
+        rng = random.Random(seed)
+        specs = make_specs(rng, n_banking, n_general, used_names)
+        for spec in specs:
+            entities.append(make_entity(rng, len(entities) + 1, spec))
+
+    if len(entities) != N_BANKING + N_GENERAL:
+        raise RuntimeError("entity count does not match configured target")
+    if len({entity["entity_name"] for entity in entities}) != len(entities):
+        raise RuntimeError("duplicate fictional entity names generated")
 
     out_path = Path(__file__).parent / "entities.json"
     out_path.write_text(json.dumps({"seed": SEED, "ratios": list(RATIOS),
