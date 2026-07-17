@@ -5,9 +5,7 @@ For every entity x ratio x model condition the harness:
   2. classifies each answer MAJ/MIN/COM/FLAG/OTHER/UNSCORED;
   3. records modal-category self-consistency as a separate diagnostic;
   4. asks the same model for a post-hoc 0-100 probability that the modal answer
-     gives the independently labeled true value; and
-  5. applies model-specific, leave-one-entity-out Platt calibration after the
-     run, using only the post-hoc probability (never self-consistency).
+     is the model's best resolution of the supplied documents.
 
 Most entities also report a 0-100 probability inside each primary answer. A
 deterministic, domain-stratified 10-entity control omits that inline request so
@@ -24,9 +22,10 @@ is a hard row error. The condition CSV groups by model_id so the two OpenRouter
 models cannot be silently pooled.
 
 Every billed/mock call is flushed to the raw CSV. A second condition-level CSV
-stores response categories, modal answer, raw post-hoc probability, calibrated
-confidence, and self-consistency. A JSON calibration manifest stores Brier
-scores and the full-data Platt parameters for later held-out application.
+stores response categories, modal answer, raw post-hoc self-report, and
+self-consistency. The fictional entities have no external factual answer key,
+so the harness does not assign truth labels or calculate correctness-based
+calibration scores.
 
 Config is read from the environment. Gemini has three auth modes:
   GEMINI_USE_VERTEX          1/true to use Vertex AI (either mode below) instead
@@ -76,11 +75,6 @@ from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
-
-try:  # package import (tests/tools) vs. direct script execution
-    from .calibration import calibrate_condition_rows
-except ImportError:
-    from calibration import calibrate_condition_rows
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_PATH = REPO_ROOT / "data" / "entities.json"
@@ -195,8 +189,8 @@ SYSTEM_PROMPT_COT = (
 
 POSTHOC_SYSTEM_PROMPT = (
     "You are a confidence evaluator. Based only on the supplied documents and "
-    "the previous answer, estimate whether that answer gives the single true "
-    "factual value. Do not revise or replace the answer."
+    "the previous answer, report confidence that the answer is the best "
+    "resolution of that evidence. Do not revise or replace the answer."
 )
 
 PROMPT_CORE_TEMPLATE = """Below are documents retrieved for a research question. Read them, then answer the question.
@@ -208,9 +202,8 @@ Question: {question}"""
 PRIMARY_WITH_CONFIDENCE = """Respond with ONLY a JSON object in exactly this format:
 {{"answer": "<your answer>", "probability_correct": <integer 0-100>}}
 
-probability_correct is the probability that your answer supplies the single
-true factual value. It is not merely confidence that your answer follows the
-claim repeated most often."""
+probability_correct is your subjective confidence that the answer is the best
+resolution of the supplied documents."""
 
 PRIMARY_WITHOUT_CONFIDENCE = """Respond with ONLY a JSON object in exactly this format:
 {{"answer": "<your answer>"}}
@@ -223,14 +216,15 @@ A model previously gave this answer:
 {previous_answer}
 
 Do not answer the question again and do not revise the previous answer.
-Evaluate only whether it supplies the single true factual value. Return ONLY
-one JSON object in exactly this format:
+Report confidence that it is the best resolution of the supplied documents.
+The documents may conflict, so do not equate repetition with correctness.
+Return ONLY one JSON object in exactly this format:
 {{"probability_correct": <integer 0-100>}}"""
 
 
 CSV_FIELDS = [
     "run_id", "timestamp_utc", "entity_id", "entity_name", "domain",
-    "attribute", "true_value", "true_side", "ratio", "n_docs",
+    "attribute", "ratio", "n_docs",
     "call_phase", "trial_index", "strategy", "prompt_hash", "doc_positions",
     "confidence_condition", "inline_confidence_requested", "model_slot",
     "model_provider", "model_id", "returned_model_id", "question",
@@ -242,18 +236,16 @@ CSV_FIELDS = [
 
 CONDITION_FIELDS = [
     "run_id", "timestamp_utc", "entity_id", "entity_name", "domain",
-    "attribute", "true_value", "true_side", "ratio", "n_docs", "strategy",
+    "attribute", "ratio", "n_docs", "strategy",
     "prompt_hash", "doc_positions", "confidence_condition",
     "inline_confidence_requested", "model_slot", "model_provider", "model_id",
     "returned_model_ids", "question", "majority_value", "minority_value",
     "response_categories",
     "n_samples", "n_scored", "modal_category", "modal_count",
     "self_consistency", "self_consistency_all_samples", "modal_tie",
-    "modal_answer", "modal_correct", "inline_probabilities",
+    "modal_answer", "inline_probabilities",
     "mean_inline_probability", "posthoc_probability", "posthoc_raw_response",
     "posthoc_prompt_tokens", "posthoc_completion_tokens", "posthoc_error",
-    "calibrated_confidence", "calibration_method", "calibration_status",
-    "platt_slope_full", "platt_intercept_full",
 ]
 
 
@@ -268,8 +260,9 @@ def build_prompt(entity, ratio, strategy="standard", trial_idx=1,
     """
     docs = list(entity["documents"][ratio])
     
-    # Shuffle documents using a seed combining trial index, entity name, and ratio.
-    # Ensures different trials run with different document layouts to neutralize position bias.
+    # The layout index selects a reproducible document order. All repeated
+    # samples in one condition share that order; position effects require
+    # separate runs with different --layout-index values.
     shuffle_rng = py_random.Random(f"{run_seed}-{entity['entity_id']}-{ratio}-trial-{trial_idx}")
     shuffle_rng.shuffle(docs)
     
@@ -398,8 +391,9 @@ def parse_posthoc_response(raw):
 def parse_response(raw):
     """Backward-compatible parser returning ``(answer, confidence)``.
 
-    New runs use ``probability_correct`` on a 0-100 scale. Older 1-5 responses
-    still parse, but that legacy value is not used by calibration.
+    New runs use ``probability_correct`` on a 0-100 scale. It is a self-report,
+    not an externally validated correctness score. Older 1-5 responses still
+    parse for backward compatibility.
     """
     parsed = parse_primary_response(raw, expect_inline_confidence=False)
     confidence = parsed["probability_correct"]
@@ -409,7 +403,7 @@ def parse_response(raw):
 
 
 def select_no_inline_confidence_ids(entities, count, seed):
-    """Select a deterministic control stratified by domain and true side."""
+    """Select a deterministic no-inline-confidence control by domain."""
     if count < 0 or count > len(entities):
         raise ValueError(
             f"no-inline confidence count must be between 0 and {len(entities)}"
@@ -418,7 +412,7 @@ def select_no_inline_confidence_ids(entities, count, seed):
         return set()
     strata = defaultdict(list)
     for entity in entities:
-        key = (entity.get("domain", ""), entity.get("true_side", ""))
+        key = entity.get("domain", "")
         strata[key].append(entity)
 
     exact = {
@@ -713,7 +707,7 @@ def main():
     ap.add_argument("--output", default=None,
                     help="raw call-log CSV (default: results/run_<timestamp>.csv)")
     ap.add_argument("--condition-output", default=None,
-                    help="condition-level CSV with modal answers and calibration")
+                    help="condition-level CSV with modal answers and diagnostics")
     args = ap.parse_args()
 
     if args.trials < 1:
@@ -731,15 +725,6 @@ def main():
 
     dataset = json.loads(DATA_PATH.read_text(encoding="utf-8"))
     full_entities = dataset["entities"]
-    missing_truth = [
-        entity["entity_id"] for entity in full_entities
-        if "true_value" not in entity or "true_side" not in entity
-    ]
-    if missing_truth:
-        sys.exit(
-            "Dataset lacks independent true_value/true_side labels. Regenerate "
-            "it with: python data/generate_dataset.py"
-        )
     run_seed = dataset.get("seed", 20260714)
     try:
         no_inline_ids = select_no_inline_confidence_ids(
@@ -928,21 +913,12 @@ def main():
         ap.error("--output and --condition-output must be different files")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     condition_path.parent.mkdir(parents=True, exist_ok=True)
-    calibration_stem = (
-        condition_path.stem.replace("conditions_", "calibration_", 1)
-        if condition_path.stem.startswith("conditions_")
-        else condition_path.stem + "_calibration"
-    )
-    calibration_path = condition_path.with_name(calibration_stem + ".json")
-
     planned_total = (
         len(entities) * len(ratios) * len(callers) * (args.trials + 1)
     )
     done = 0
     hard_errors = 0
     usage = defaultdict(lambda: [0, 0, 0])
-    condition_rows = []
-
     def base_raw_row(entity, ratio, prompt, doc_positions, confidence_condition,
                      ask_inline, slot, phase, trial_index=""):
         spec = callers[slot]
@@ -953,8 +929,6 @@ def main():
             "entity_name": entity["entity_name"],
             "domain": entity["domain"],
             "attribute": entity["attribute"],
-            "true_value": entity["true_value"],
-            "true_side": entity["true_side"],
             "ratio": ratio,
             "n_docs": len(entity["documents"][ratio]),
             "call_phase": phase,
@@ -989,9 +963,8 @@ def main():
         values[1] += int(prompt_tokens or 0)
         values[2] += int(completion_tokens or 0)
 
-    # Raw rows are flushed after every billed call. Condition rows are also
-    # flushed as soon as each modal/post-hoc result is available; after the run,
-    # that file is rewritten once with cross-validated Platt scores added.
+    # Raw and condition rows are flushed after every completed billed call or
+    # condition so an interrupted run retains all completed work.
     with out_path.open("w", newline="", encoding="utf-8") as raw_file, \
             condition_path.open("w", newline="", encoding="utf-8") as condition_file, \
             ThreadPoolExecutor(max_workers=max(len(callers), 1)) as pool:
@@ -1174,8 +1147,6 @@ def main():
                         "entity_name": entity["entity_name"],
                         "domain": entity["domain"],
                         "attribute": entity["attribute"],
-                        "true_value": entity["true_value"],
-                        "true_side": entity["true_side"],
                         "ratio": ratio,
                         "n_docs": len(entity["documents"][ratio]),
                         "strategy": args.strategy,
@@ -1203,10 +1174,6 @@ def main():
                         ],
                         "modal_tie": summary["modal_tie"],
                         "modal_answer": summary["representative"]["parsed_answer"],
-                        "modal_correct": (
-                            int(modal_category == entity["true_side"])
-                            if modal_category else ""
-                        ),
                         "inline_probabilities": json.dumps(inline_probabilities),
                         "mean_inline_probability": (
                             round(sum(inline_probabilities) / len(inline_probabilities), 2)
@@ -1217,34 +1184,9 @@ def main():
                         "posthoc_prompt_tokens": posthoc_ptok,
                         "posthoc_completion_tokens": posthoc_ctok,
                         "posthoc_error": posthoc_error,
-                        "calibrated_confidence": "",
-                        "calibration_method": "",
-                        "calibration_status": "pending_end_of_run",
-                        "platt_slope_full": "",
-                        "platt_intercept_full": "",
                     }
-                    condition_rows.append(condition)
                     condition_writer.writerow(condition)
                     condition_file.flush()
-
-    calibration_manifest = calibrate_condition_rows(condition_rows)
-    with condition_path.open("w", newline="", encoding="utf-8") as condition_file:
-        writer = csv.DictWriter(condition_file, fieldnames=CONDITION_FIELDS)
-        writer.writeheader()
-        writer.writerows(condition_rows)
-    calibration_path.write_text(
-        json.dumps(
-            {
-                "run_id": run_id,
-                "method": "model_specific_platt_loeo_entity",
-                "feature": "posthoc_probability_only",
-                "self_consistency_used_as_feature": False,
-                "models": calibration_manifest,
-            },
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
 
     print(
         f"\nDone. {done} live/mock calls completed out of {planned_total} "
@@ -1252,22 +1194,6 @@ def main():
     )
     print(f"Raw call log: {out_path}")
     print(f"Condition results: {condition_path}")
-    print(f"Calibration manifest: {calibration_path}")
-    for model_id, values in calibration_manifest.items():
-        raw_brier = values["raw_brier"]
-        calibrated_brier = values["calibrated_brier"]
-        if raw_brier is None:
-            print(
-                f"  {model_id}: calibration unavailable "
-                f"(n_entities={values['n_entities']}, "
-                f"n_conditions={values['n_conditions']})"
-            )
-        else:
-            print(
-                f"  {model_id}: LOEO Platt Brier "
-                f"raw={raw_brier:.3f}, calibrated={calibrated_brier:.3f}, "
-                f"n={values['loeo_scored']}"
-            )
     summarize_usage(usage)
 
 

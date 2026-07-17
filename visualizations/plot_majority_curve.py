@@ -1,8 +1,9 @@
 """Figure 1 — the majority-illusion curve (H1).
 
 Majority-follow rate vs. evidence ratio, one line per model, with 95% Wilson
-confidence intervals. The 4:0 control point shows baseline accuracy on clean
-evidence; a rising curve across 2:2 -> 3:1 -> 4:1 is the majority illusion.
+confidence intervals. The 4:0 control shows context compliance when all
+documents agree; a rising curve as majority share grows is the majority
+illusion. It is not a factual-accuracy measure.
 
 Usage:
     python visualizations/plot_majority_curve.py            # latest run CSV

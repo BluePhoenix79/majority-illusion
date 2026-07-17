@@ -1,96 +1,113 @@
-"""Figure 3 — confident wrongness (H3).
+"""Figure 3 — self-reported confidence by evidence ratio and answer category.
 
-Mean confidence per ratio, split by whether the selected claim matches the
-independent true_value label. For new condition-level files this uses the
-model-specific calibrated confidence; older/raw files fall back to the stored
-self-report. H3 asks whether models remain highly confident when wrong.
-
-Bars are annotated with n; a group with no data is simply absent.
+The entities are fictional and have no external answer key. This figure
+therefore treats 0-100 confidence as a model self-report and compares it across
+MAJ/MIN/COM/FLAG outcomes. It never labels an answer factually correct or wrong.
 
 Usage:
     python visualizations/plot_confidence.py
-    python visualizations/plot_confidence.py --csv results/pilot_gemini_gpt5mini.csv
+    python visualizations/plot_confidence.py --csv results/conditions_<run>.csv
 """
 
 import matplotlib.pyplot as plt
 
-from common import (CATEGORY_COLORS, MUTED, RATIO_ORDER, SURFACE, apply_style,
+from common import (CATEGORY_COLORS, RATIO_ORDER, SURFACE, apply_style,
                     load_results, make_arg_parser, save_figure)
 
-GROUPS = [(True, "Correct value", CATEGORY_COLORS["MAJ"]),
-          (False, "Wrong value", CATEGORY_COLORS["MIN"])]
+
+GROUPS = [
+    ("MAJ", "Majority claim", CATEGORY_COLORS["MAJ"]),
+    ("MIN", "Minority claim", CATEGORY_COLORS["MIN"]),
+    ("COM", "Compromise", CATEGORY_COLORS["COM"]),
+    ("FLAG", "Conflict flagged", CATEGORY_COLORS["FLAG"]),
+]
 
 
 def main():
     args = make_arg_parser(__doc__.splitlines()[0]).parse_args()
     df = load_results(args.csv, args.strategy, args.exclude)
-    if "answer_correct" not in df.columns:
-        raise SystemExit("Confidence analysis requires true_side/true_value labels.")
-    scored = df[df["category"].isin(["MAJ", "MIN"])
-                & df["confidence"].notna()].copy()
+    scored = df[
+        df["category"].isin([category for category, _, _ in GROUPS])
+        & df["confidence"].notna()
+    ].copy()
     if not len(scored):
-        raise SystemExit("No truth-labeled rows with usable confidence values.")
+        raise SystemExit("No categorized rows with usable confidence values.")
 
-    # New condition-level scores always use 0-100. Only legacy raw files need
-    # scale detection for their historical 1-5 field.
+    # Current condition files store 0-100 self-reports. Historical raw files
+    # may contain the original 1-5 field, which remains readable.
     scale_max = (
         100 if "modal_category" in df.columns
         else 5 if scored["confidence"].max() <= 5
         else 100
     )
-    print(f"Detected confidence scale: 1-{scale_max}"
-          if scale_max == 5 else "Detected confidence scale: 0-100")
+    print(
+        f"Detected confidence scale: 1-{scale_max}"
+        if scale_max == 5 else "Detected confidence scale: 0-100"
+    )
 
     models = sorted(scored["model_id"].unique())
+    ratios = [ratio for ratio in RATIO_ORDER if ratio in set(scored["ratio"])]
     apply_style()
-    fig, axes = plt.subplots(1, max(len(models), 1),
-                             figsize=(5.5 * max(len(models), 1), 4.5),
-                             sharey=True, squeeze=False)
+    fig, axes = plt.subplots(
+        1, max(len(models), 1),
+        figsize=(5.5 * max(len(models), 1), 4.5),
+        sharey=True, squeeze=False,
+    )
+    width = 0.18
+    offsets = [(-1.5 + index) * width for index in range(len(GROUPS))]
 
     for ax, model_id in zip(axes[0], models):
-        group = scored[scored["model_id"] == model_id]
-        width = 0.36
-        for gi, (is_correct, label, color) in enumerate(GROUPS):
-            xs, means, ns, ratios = [], [], [], []
-            for ri, ratio in enumerate(RATIO_ORDER):
-                sub = group[(group["ratio"] == ratio)
-                            & (group["answer_correct"] == is_correct)]
-                if not len(sub):
+        model_rows = scored[scored["model_id"] == model_id]
+        for offset, (category, label, color) in zip(offsets, GROUPS):
+            xs, means, ns, present_ratios = [], [], [], []
+            for ratio_index, ratio in enumerate(ratios):
+                subset = model_rows[
+                    (model_rows["ratio"] == ratio)
+                    & (model_rows["category"] == category)
+                ]
+                if not len(subset):
                     continue
-                xs.append(ri + (gi - 0.5) * width)
-                means.append(sub["confidence"].mean())
-                ns.append(len(sub))
-                ratios.append(ratio)
-            ax.bar(xs, means, width=width, color=color, label=label,
-                   edgecolor=SURFACE, linewidth=2)
-            for x, mean, n in zip(xs, means, ns):
-                ax.annotate(f"{mean:.1f}" if scale_max == 5 else f"{mean:.0f}",
-                            (x, mean), xytext=(0, 4),
-                            textcoords="offset points", ha="center",
-                            fontsize=9, color=color)
-                ax.annotate(f"n={n}", (x, 0), xytext=(0, 4),
-                            textcoords="offset points", ha="center",
-                            fontsize=7.5, color=MUTED)
-            for ratio, mean, n in zip(ratios, means, ns):
-                print(f"{model_id} {ratio} correct={is_correct}: mean confidence "
-                      f"{mean:.1f} (n={n})")
-        ax.set_xticks(range(len(RATIO_ORDER)))
-        ax.set_xticklabels([r + ("\n(control)" if r == "4:0" else "")
-                            for r in RATIO_ORDER])
+                xs.append(ratio_index + offset)
+                means.append(subset["confidence"].mean())
+                ns.append(len(subset))
+                present_ratios.append(ratio)
+            ax.bar(
+                xs, means, width=width, color=color, label=label,
+                edgecolor=SURFACE, linewidth=1.5,
+            )
+            for x, mean, n, ratio in zip(xs, means, ns, present_ratios):
+                value = f"{mean:.1f}" if scale_max == 5 else f"{mean:.0f}"
+                ax.annotate(
+                    value, (x, mean), xytext=(0, 3),
+                    textcoords="offset points", ha="center", fontsize=7,
+                    color=color,
+                )
+                print(
+                    f"{model_id} ratio={ratio} category={category}: "
+                    f"mean self-reported "
+                    f"confidence {mean:.1f} (n={n})"
+                )
+        ax.set_xticks(range(len(ratios)))
+        ax.set_xticklabels([
+            ratio + ("\n(control)" if ratio == "4:0" else "")
+            for ratio in ratios
+        ])
         ax.set_ylim(0, scale_max * 1.08)
         ax.set_xlabel("Evidence ratio")
-        ax.set_title(group["model_label"].iloc[0] if len(group) else model_id,
-                     fontsize=11)
+        ax.set_title(model_rows["model_label"].iloc[0], fontsize=11)
 
     axes[0][0].set_ylabel(
-        f"Mean {'calibrated' if 'modal_category' in df.columns else 'self-reported'} confidence "
-        f"({'1-5' if scale_max == 5 else '0-100'})")
+        f"Mean self-reported confidence ({'1-5' if scale_max == 5 else '0-100'})"
+    )
     handles, labels = axes[0][0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="upper center", ncol=len(labels),
-               bbox_to_anchor=(0.5, -0.04), fontsize=9)
-    fig.suptitle("Confident wrongness: confidence by ratio and correctness",
-                 fontsize=12)
-
+    fig.legend(
+        handles, labels, loc="upper center", ncol=len(labels),
+        bbox_to_anchor=(0.5, -0.04), fontsize=9,
+    )
+    fig.suptitle(
+        "Self-reported confidence by evidence ratio and response category",
+        fontsize=12,
+    )
     save_figure(fig, args, "fig3_confidence.png")
 
 

@@ -207,9 +207,10 @@ def load_results(csv_paths=None, strategy=None, exclude=None):
         df["raw_posthoc_confidence"] = pd.to_numeric(
             df.get("posthoc_probability", ""), errors="coerce"
         )
-        df["confidence"] = pd.to_numeric(
-            df.get("calibrated_confidence", ""), errors="coerce"
-        )
+        # Fictional entities have no external correctness target. Condition-
+        # level confidence is the model's raw post-hoc self-report, not a
+        # truth-calibrated score.
+        df["confidence"] = df["raw_posthoc_confidence"]
     else:
         df["confidence"] = pd.to_numeric(
             df.get("parsed_confidence", ""), errors="coerce"
@@ -217,11 +218,6 @@ def load_results(csv_paths=None, strategy=None, exclude=None):
     df["majority_share"] = df["ratio"].map(MAJORITY_SHARE)
     df["model_label"] = df["model_id"].map(pretty_model_label)
     df["model_key"] = df["model_id"]
-    if "true_side" in df.columns:
-        df["answer_correct"] = (
-            df["category"].isin(["MAJ", "MIN"])
-            & (df["category"] == df["true_side"])
-        )
     return df
 
 

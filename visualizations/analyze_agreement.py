@@ -9,14 +9,13 @@ reported in [0,1]:
   majority_follow   - share of trials categorized MAJ. "How reliably does it
                       follow the document majority here?"
 
-These are kept SEPARATE from both the raw 0-100 post-hoc self-report and its
-model-specific Platt-calibrated value. The payoff is comparing them without
-using agreement as a calibration feature: a model can be perfectly stable and
-still be confidently wrong.
+These are kept SEPARATE from the raw 0-100 inline and post-hoc self-reports.
+The payoff is comparing reported confidence with behavioral stability without
+pretending that either one is externally validated factual correctness.
 
 Accepts either the new condition-level CSV directly or a legacy raw run with
 --trials > 1. Prints a per-condition table and, per model x ratio, the mean of
-each measure alongside raw and calibrated confidence.
+each measure alongside inline and post-hoc self-reported confidence.
 
 Usage:
     python visualizations/analyze_agreement.py --csv results/multitrial_smoke.csv
@@ -60,9 +59,6 @@ def condition_table(df):
         cond["raw_posthoc"] = pd.to_numeric(
             cond.get("posthoc_probability", ""), errors="coerce"
         )
-        cond["calibrated_confidence"] = pd.to_numeric(
-            cond.get("calibrated_confidence", ""), errors="coerce"
-        )
         return cond
 
     rows = []
@@ -84,7 +80,6 @@ def condition_table(df):
             "majority_follow": maj_share, "modal_category": modal_cat,
             "mean_inline_selfreport": g["confidence"].mean(),
             "raw_posthoc": float("nan"),
-            "calibrated_confidence": float("nan"),
         })
     return pd.DataFrame(rows)
 
@@ -112,12 +107,11 @@ def main():
                   f"{r.self_consistency:.0%}, majority-follow "
                   f"{r.majority_follow:.0%}, modal-cat={r.modal_category}, "
                   f"inline~{r.mean_inline_selfreport:.1f}, "
-                  f"posthoc~{r.raw_posthoc:.1f}, "
-                  f"calibrated~{r.calibrated_confidence:.1f}")
+                  f"posthoc~{r.raw_posthoc:.1f}")
 
     print("\n=== mean by model x ratio: behavioral vs. self-reported ===")
     print(f"{'model':22} {'ratio':>5} {'self-consist':>12} "
-          f"{'maj-follow':>11} {'inline':>9} {'posthoc':>9} {'calibrated':>11}")
+          f"{'maj-follow':>11} {'inline':>9} {'posthoc':>9}")
     for model_id, g in cond.groupby("model_id"):
         label = pretty_model_label(model_id)
         for ratio in ratios_present:
@@ -128,11 +122,10 @@ def main():
                   f"{sub.self_consistency.mean():>11.0%} "
                   f"{sub.majority_follow.mean():>10.0%} "
                   f"{sub.mean_inline_selfreport.mean():>8.1f} "
-                  f"{sub.raw_posthoc.mean():>8.1f} "
-                  f"{sub.calibrated_confidence.mean():>10.1f}")
+                  f"{sub.raw_posthoc.mean():>8.1f}")
     print("\nRead these as distinct quantities: agreement measures stability; "
-          "post-hoc confidence estimates correctness; Platt scaling calibrates "
-          "that estimate without using agreement as a feature.")
+          "inline and post-hoc confidence are model self-reports. None is an "
+          "objective correctness score because the entities are fictional.")
 
 
 if __name__ == "__main__":

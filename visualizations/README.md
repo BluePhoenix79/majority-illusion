@@ -11,9 +11,9 @@ analysis is one modal result per model/entity/ratio, not three correlated calls.
 |---|---|---|
 | `plot_majority_curve.py` | Majority-follow rate vs. evidence ratio (the majority-illusion curve) | H1 |
 | `plot_flag_rate.py` | Conflict-flag rate vs. ratio (conflict blindness) | H2 |
-| `plot_confidence.py` | Mean calibrated confidence by ratio, correct vs. wrong answers | H3 |
+| `plot_confidence.py` | Self-reported confidence by ratio and MAJ/MIN/COM/FLAG outcome | RQ1 / confidence |
 | `plot_outcome_breakdown.py` | 100% stacked MAJ/MIN/COM/FLAG breakdown per ratio and model | all / H4 |
-| `plot_agreement.py` | Raw and calibrated confidence beside self-consistency | calibration |
+| `plot_agreement.py` | Inline/post-hoc self-reports beside self-consistency | confidence diagnostics |
 
 Run from the repo root or this directory:
 
@@ -33,10 +33,11 @@ whole-token string matching. Proportion error bars are 95% Wilson intervals.
 
 If a CSV contains both prompting strategies (standard + CoT), pass
 `--strategy standard` or `--strategy cot` — pooling them mixes two experiments.
-New condition CSVs use the model-specific Platt-calibrated 0-100 score. Raw
-post-hoc confidence and self-consistency remain separate columns and are shown
-together only for comparison in `plot_agreement.py`. Legacy 1-5 values remain
-readable but are not used to fit the new calibration.
+New condition CSVs keep the model's raw 0-100 inline and post-hoc confidence
+self-reports separate from behavioral self-consistency. Because every entity
+and claim is fictional and the experiment supplies no external answer key,
+none of these fields is presented as calibrated factual correctness. Legacy
+1-5 confidence values remain readable for historical result files.
 
 Claude and DeepSeek share `model_provider=openrouter`, so every current plot
 groups by `model_id`. Grouping by provider would incorrectly pool the two

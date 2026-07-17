@@ -421,3 +421,39 @@ Files: .gitignore, AGENT_HANDOFF.md, data/, harness/, visualizations/, tests/, r
 Status: Offline validation passes. run_standard_1.csv is complete (600 rows, 0 errors);
 run_standard_2.csv is interrupted (318 rows, 0 errors). Entity expansion to 75 and a live
 fire test of the revised collector remain next; no result is represented as a completed rerun.
+
+## [Jul 16, 9:55 PM] — Kartigan
+Committed: Pending — removed the hidden random truth labels and truth-dependent Platt/Brier
+workflow; confidence is now reported only as inline/post-hoc model self-report.
+Files: AGENT_HANDOFF.md, data/, harness/, tests/, visualizations/, UPDATES.md
+Status: Six offline tests, syntax checks, and a 12-call three-model mock passed with zero
+errors. Entity content and ratios are unchanged; no live API calls were made.
+
+## [Jul 16, 10:14 PM] — Kartigan
+Committed: Pending — expanded the fictional dataset from 50 to 75 entities while preserving
+E001–E050 exactly; added 10 banking and 15 general entities as E051–E075.
+Files: data/generate_dataset.py, data/entities.json, tests/test_new_approach.py,
+AGENT_HANDOFF.md, UPDATES.md
+Status: Dataset is now 30 banking/45 general. Determinism, first-50 hash, eight tests, and a
+24-call three-model mock pass; a full strategy run is now 5,400 API calls.
+
+## [Jul 16, 10:17 PM] — Kartigan
+Committed: Pending — removed confidence-arm-only decision guidance so the 10-entity control
+differs from the main condition only by whether inline confidence is requested.
+Files: harness/run_experiment.py, tests/test_new_approach.py, UPDATES.md
+Status: Eight tests and the 24-call mock pass after the prompt-isolation correction; no live
+API calls were made.
+
+## [Jul 16, 10:18 PM] — Kartigan
+Committed: Pending — documented the final paper-alignment limits: RQ4 needs controlled
+layout runs and a position metric, and document ratio remains partly confounded with length.
+Files: AGENT_HANDOFF.md, UPDATES.md
+Status: RQ1–RQ3 align with the current collector after manuscript revisions; historical
+50-entity/1–5 data must remain separate from the new experiment.
+
+## [Jul 16, 10:29 PM] — Kartigan
+Committed: Finalized the no-truth 75-entity confidence workflow for commit; deliberately
+restored AGENT_HANDOFF.md unchanged and moved its updated handoff details to the session chat.
+Files: data/, harness/, tests/, visualizations/, UPDATES.md
+Status: E001–E050 remain exact, E051–E075 are added, eight tests and a 24-call mock pass,
+and no live API calls were made. Ready to commit and push.
