@@ -421,3 +421,9 @@ Files: .gitignore, AGENT_HANDOFF.md, data/, harness/, visualizations/, tests/, r
 Status: Offline validation passes. run_standard_1.csv is complete (600 rows, 0 errors);
 run_standard_2.csv is interrupted (318 rows, 0 errors). Entity expansion to 75 and a live
 fire test of the revised collector remain next; no result is represented as a completed rerun.
+
+## Date: 2026-07-16
+### Major Refactor & Codebase Pruning
+- Purged obsolete legacy files (e.g. esearch_brief.md, AGENT_HANDOFF.md, esults/run_standard_1.csv, esults/run_standard_2.csv).
+- Stripped Platt calibration and Brier score logic completely from the harness (harness/run_experiment.py, 	ests/test_new_approach.py) and visualization scripts.
+- Removed 	rue_value, 	rue_side, and all legacy 'correct/wrong' language from un_experiment.py, visualization scripts, and manuscript.md.

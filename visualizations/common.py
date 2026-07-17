@@ -217,11 +217,6 @@ def load_results(csv_paths=None, strategy=None, exclude=None):
     df["majority_share"] = df["ratio"].map(MAJORITY_SHARE)
     df["model_label"] = df["model_id"].map(pretty_model_label)
     df["model_key"] = df["model_id"]
-    if "true_side" in df.columns:
-        df["answer_correct"] = (
-            df["category"].isin(["MAJ", "MIN"])
-            & (df["category"] == df["true_side"])
-        )
     return df
 
 

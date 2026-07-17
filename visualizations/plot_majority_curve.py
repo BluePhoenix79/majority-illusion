@@ -1,7 +1,7 @@
 """Figure 1 — the majority-illusion curve (H1).
 
 Majority-follow rate vs. evidence ratio, one line per model, with 95% Wilson
-confidence intervals. The 4:0 control point shows baseline accuracy on clean
+confidence intervals. The 4:0 control point shows baseline context compliance on clean
 evidence; a rising curve across 2:2 -> 3:1 -> 4:1 is the majority illusion.
 
 Usage:

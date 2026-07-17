@@ -5,9 +5,7 @@ For every entity x ratio x model condition the harness:
   2. classifies each answer MAJ/MIN/COM/FLAG/OTHER/UNSCORED;
   3. records modal-category self-consistency as a separate diagnostic;
   4. asks the same model for a post-hoc 0-100 probability that the modal answer
-     gives the independently labeled true value; and
-  5. applies model-specific, leave-one-entity-out Platt calibration after the
-     run, using only the post-hoc probability (never self-consistency).
+     gives the independently labeled true value.
 
 Most entities also report a 0-100 probability inside each primary answer. A
 deterministic, domain-stratified 10-entity control omits that inline request so
@@ -24,9 +22,8 @@ is a hard row error. The condition CSV groups by model_id so the two OpenRouter
 models cannot be silently pooled.
 
 Every billed/mock call is flushed to the raw CSV. A second condition-level CSV
-stores response categories, modal answer, raw post-hoc probability, calibrated
-confidence, and self-consistency. A JSON calibration manifest stores Brier
-scores and the full-data Platt parameters for later held-out application.
+stores response categories, modal answer, raw post-hoc probability, and
+self-consistency.
 
 Config is read from the environment. Gemini has three auth modes:
   GEMINI_USE_VERTEX          1/true to use Vertex AI (either mode below) instead
@@ -77,10 +74,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
-try:  # package import (tests/tools) vs. direct script execution
-    from .calibration import calibrate_condition_rows
-except ImportError:
-    from calibration import calibrate_condition_rows
+
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_PATH = REPO_ROOT / "data" / "entities.json"
@@ -230,30 +224,28 @@ one JSON object in exactly this format:
 
 CSV_FIELDS = [
     "run_id", "timestamp_utc", "entity_id", "entity_name", "domain",
-    "attribute", "true_value", "true_side", "ratio", "n_docs",
+    "attribute", "ratio", "n_docs",
     "call_phase", "trial_index", "strategy", "prompt_hash", "doc_positions",
     "confidence_condition", "inline_confidence_requested", "model_slot",
     "model_provider", "model_id", "returned_model_id", "question",
     "majority_value", "minority_value", "response_category", "raw_response",
     "parsed_answer", "parsed_confidence", "confidence_scale",
-    "legacy_confidence_1_5", "format_error", "prompt_tokens",
+    "format_error", "prompt_tokens",
     "completion_tokens", "error",
 ]
 
 CONDITION_FIELDS = [
     "run_id", "timestamp_utc", "entity_id", "entity_name", "domain",
-    "attribute", "true_value", "true_side", "ratio", "n_docs", "strategy",
+    "attribute", "ratio", "n_docs", "strategy",
     "prompt_hash", "doc_positions", "confidence_condition",
     "inline_confidence_requested", "model_slot", "model_provider", "model_id",
     "returned_model_ids", "question", "majority_value", "minority_value",
     "response_categories",
     "n_samples", "n_scored", "modal_category", "modal_count",
     "self_consistency", "self_consistency_all_samples", "modal_tie",
-    "modal_answer", "modal_correct", "inline_probabilities",
+    "modal_answer", "inline_probabilities",
     "mean_inline_probability", "posthoc_probability", "posthoc_raw_response",
     "posthoc_prompt_tokens", "posthoc_completion_tokens", "posthoc_error",
-    "calibrated_confidence", "calibration_method", "calibration_status",
-    "platt_slope_full", "platt_intercept_full",
 ]
 
 
@@ -350,7 +342,7 @@ def parse_primary_response(raw, expect_inline_confidence=True):
     never promoted to the primary probability field.
     """
     parsed = {
-        "answer": "", "probability_correct": "", "legacy_confidence_1_5": "",
+        "answer": "", "probability_correct": "",
         "format_error": "",
     }
     obj = extract_json_object(raw)
@@ -368,14 +360,6 @@ def parse_primary_response(raw, expect_inline_confidence=True):
             )
         except (TypeError, ValueError) as exc:
             parsed["format_error"] = str(exc)
-    if "confidence" in obj:
-        try:
-            legacy = int(obj["confidence"])
-            if legacy in range(1, 6):
-                parsed["legacy_confidence_1_5"] = legacy
-        except (TypeError, ValueError):
-            pass
-
     if expect_inline_confidence and parsed["probability_correct"] == "":
         parsed["format_error"] = (
             parsed["format_error"] or "missing probability_correct"
@@ -396,20 +380,13 @@ def parse_posthoc_response(raw):
 
 
 def parse_response(raw):
-    """Backward-compatible parser returning ``(answer, confidence)``.
-
-    New runs use ``probability_correct`` on a 0-100 scale. Older 1-5 responses
-    still parse, but that legacy value is not used by calibration.
-    """
+    """Backward-compatible parser returning ``(answer, confidence)``."""
     parsed = parse_primary_response(raw, expect_inline_confidence=False)
-    confidence = parsed["probability_correct"]
-    if confidence == "":
-        confidence = parsed["legacy_confidence_1_5"]
-    return parsed["answer"], confidence
+    return parsed["answer"], parsed["probability_correct"]
 
 
 def select_no_inline_confidence_ids(entities, count, seed):
-    """Select a deterministic control stratified by domain and true side."""
+    """Select a deterministic control stratified by domain."""
     if count < 0 or count > len(entities):
         raise ValueError(
             f"no-inline confidence count must be between 0 and {len(entities)}"
@@ -418,7 +395,7 @@ def select_no_inline_confidence_ids(entities, count, seed):
         return set()
     strata = defaultdict(list)
     for entity in entities:
-        key = (entity.get("domain", ""), entity.get("true_side", ""))
+        key = entity.get("domain", "")
         strata[key].append(entity)
 
     exact = {
@@ -713,7 +690,7 @@ def main():
     ap.add_argument("--output", default=None,
                     help="raw call-log CSV (default: results/run_<timestamp>.csv)")
     ap.add_argument("--condition-output", default=None,
-                    help="condition-level CSV with modal answers and calibration")
+                    help="condition-level CSV with modal answers")
     args = ap.parse_args()
 
     if args.trials < 1:
@@ -731,15 +708,7 @@ def main():
 
     dataset = json.loads(DATA_PATH.read_text(encoding="utf-8"))
     full_entities = dataset["entities"]
-    missing_truth = [
-        entity["entity_id"] for entity in full_entities
-        if "true_value" not in entity or "true_side" not in entity
-    ]
-    if missing_truth:
-        sys.exit(
-            "Dataset lacks independent true_value/true_side labels. Regenerate "
-            "it with: python data/generate_dataset.py"
-        )
+
     run_seed = dataset.get("seed", 20260714)
     try:
         no_inline_ids = select_no_inline_confidence_ids(
@@ -928,12 +897,7 @@ def main():
         ap.error("--output and --condition-output must be different files")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     condition_path.parent.mkdir(parents=True, exist_ok=True)
-    calibration_stem = (
-        condition_path.stem.replace("conditions_", "calibration_", 1)
-        if condition_path.stem.startswith("conditions_")
-        else condition_path.stem + "_calibration"
-    )
-    calibration_path = condition_path.with_name(calibration_stem + ".json")
+
 
     planned_total = (
         len(entities) * len(ratios) * len(callers) * (args.trials + 1)
@@ -953,8 +917,6 @@ def main():
             "entity_name": entity["entity_name"],
             "domain": entity["domain"],
             "attribute": entity["attribute"],
-            "true_value": entity["true_value"],
-            "true_side": entity["true_side"],
             "ratio": ratio,
             "n_docs": len(entity["documents"][ratio]),
             "call_phase": phase,
@@ -976,7 +938,6 @@ def main():
             "parsed_answer": "",
             "parsed_confidence": "",
             "confidence_scale": "",
-            "legacy_confidence_1_5": "",
             "format_error": "",
             "prompt_tokens": "",
             "completion_tokens": "",
@@ -1050,9 +1011,6 @@ def main():
                                     "0-100_probability"
                                     if parsed["probability_correct"] != "" else ""
                                 ),
-                                legacy_confidence_1_5=parsed[
-                                    "legacy_confidence_1_5"
-                                ],
                                 format_error=parsed["format_error"],
                             )
                         except Exception as exc:
@@ -1174,8 +1132,6 @@ def main():
                         "entity_name": entity["entity_name"],
                         "domain": entity["domain"],
                         "attribute": entity["attribute"],
-                        "true_value": entity["true_value"],
-                        "true_side": entity["true_side"],
                         "ratio": ratio,
                         "n_docs": len(entity["documents"][ratio]),
                         "strategy": args.strategy,
@@ -1203,10 +1159,6 @@ def main():
                         ],
                         "modal_tie": summary["modal_tie"],
                         "modal_answer": summary["representative"]["parsed_answer"],
-                        "modal_correct": (
-                            int(modal_category == entity["true_side"])
-                            if modal_category else ""
-                        ),
                         "inline_probabilities": json.dumps(inline_probabilities),
                         "mean_inline_probability": (
                             round(sum(inline_probabilities) / len(inline_probabilities), 2)
@@ -1217,34 +1169,11 @@ def main():
                         "posthoc_prompt_tokens": posthoc_ptok,
                         "posthoc_completion_tokens": posthoc_ctok,
                         "posthoc_error": posthoc_error,
-                        "calibrated_confidence": "",
-                        "calibration_method": "",
-                        "calibration_status": "pending_end_of_run",
-                        "platt_slope_full": "",
-                        "platt_intercept_full": "",
                     }
                     condition_rows.append(condition)
                     condition_writer.writerow(condition)
                     condition_file.flush()
 
-    calibration_manifest = calibrate_condition_rows(condition_rows)
-    with condition_path.open("w", newline="", encoding="utf-8") as condition_file:
-        writer = csv.DictWriter(condition_file, fieldnames=CONDITION_FIELDS)
-        writer.writeheader()
-        writer.writerows(condition_rows)
-    calibration_path.write_text(
-        json.dumps(
-            {
-                "run_id": run_id,
-                "method": "model_specific_platt_loeo_entity",
-                "feature": "posthoc_probability_only",
-                "self_consistency_used_as_feature": False,
-                "models": calibration_manifest,
-            },
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
 
     print(
         f"\nDone. {done} live/mock calls completed out of {planned_total} "
@@ -1252,22 +1181,7 @@ def main():
     )
     print(f"Raw call log: {out_path}")
     print(f"Condition results: {condition_path}")
-    print(f"Calibration manifest: {calibration_path}")
-    for model_id, values in calibration_manifest.items():
-        raw_brier = values["raw_brier"]
-        calibrated_brier = values["calibrated_brier"]
-        if raw_brier is None:
-            print(
-                f"  {model_id}: calibration unavailable "
-                f"(n_entities={values['n_entities']}, "
-                f"n_conditions={values['n_conditions']})"
-            )
-        else:
-            print(
-                f"  {model_id}: LOEO Platt Brier "
-                f"raw={raw_brier:.3f}, calibrated={calibrated_brier:.3f}, "
-                f"n={values['loeo_scored']}"
-            )
+
     summarize_usage(usage)
 
 

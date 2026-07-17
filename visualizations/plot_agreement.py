@@ -1,8 +1,7 @@
-"""Figure 5: raw/calibrated confidence vs. behavioral self-consistency.
+"""Figure 5: raw confidence vs. behavioral self-consistency.
 
 Self-consistency is the modal-category share across three identical answer
-calls. It is displayed beside the raw post-hoc probability and model-specific
-Platt-calibrated confidence, but it is never used as a calibration feature.
+calls. It is displayed beside the raw post-hoc probability.
 
 Usage:
     python visualizations/plot_agreement.py --csv results/conditions_<run>.csv
@@ -15,7 +14,6 @@ from common import (RATIO_ORDER, SURFACE, apply_style, load_results,
                     make_arg_parser, pretty_model_label, save_figure)
 
 RAW_COLOR = "#eda100"
-CALIBRATED_COLOR = "#1baf7a"
 BEHAV_COLOR = "#2a78d6"
 
 
@@ -37,7 +35,7 @@ def main():
     cond["raw_norm"] = cond["raw_norm"].fillna(
         inline_norm
     )
-    cond["calibrated_norm"] = cond["calibrated_confidence"] / 100
+
     ratios = [ratio for ratio in RATIO_ORDER if ratio in set(cond["ratio"])]
     models = sorted(cond["model_id"].unique())
 
@@ -54,22 +52,16 @@ def main():
         xs = list(range(len(ratios)))
         raw = [group[group["ratio"] == ratio]["raw_norm"].mean()
                for ratio in ratios]
-        calibrated = [
-            group[group["ratio"] == ratio]["calibrated_norm"].mean()
-            for ratio in ratios
-        ]
+
         behavioral = [
             group[group["ratio"] == ratio]["self_consistency"].mean()
             for ratio in ratios
         ]
         ns = [len(group[group["ratio"] == ratio]) for ratio in ratios]
 
-        ax.bar([x - width for x in xs], raw, width, color=RAW_COLOR,
+        ax.bar([x - width/2 for x in xs], raw, width, color=RAW_COLOR,
                label="Raw post-hoc probability", edgecolor=SURFACE, linewidth=2)
-        ax.bar(xs, calibrated, width, color=CALIBRATED_COLOR,
-               label="Platt-calibrated confidence",
-               edgecolor=SURFACE, linewidth=2)
-        ax.bar([x + width for x in xs], behavioral, width, color=BEHAV_COLOR,
+        ax.bar([x + width/2 for x in xs], behavioral, width, color=BEHAV_COLOR,
                label="Self-consistency (separate diagnostic)",
                edgecolor=SURFACE, linewidth=2)
         for x, n in zip(xs, ns):
@@ -86,7 +78,7 @@ def main():
 
     axes[0][0].set_ylabel("Confidence / agreement")
     handles, labels = axes[0][0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="upper center", ncol=3,
+    fig.legend(handles, labels, loc="upper center", ncol=2,
                bbox_to_anchor=(0.5, -0.02), fontsize=9)
     fig.suptitle("Correctness confidence and behavioral stability", fontsize=12)
     save_figure(fig, args, "fig5_agreement.png")
