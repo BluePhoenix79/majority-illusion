@@ -441,3 +441,10 @@ condition-level analysis, diagnostics, and treatment-effect visualizations.
 Files: README.md, harness/, tests/, analysis/, visualizations/, requirements.txt
 Status: All 32 offline tests pass. Ready for the fresh three-model collection;
 the earlier DeepSeek observation remains an exploratory pilot pending confirmation.
+
+## [Jul 17, 11:18 AM] — Kartigan
+Committed: Documented the invalidated Standard collection attempt after OpenRouter
+ran out of credits during the Claude Haiku 4.5 arm.
+Files: UPDATES.md
+Status: The affected CSV data is unusable for project conclusions and remains local
+and uncommitted. A fresh complete three-model Standard run is required.
