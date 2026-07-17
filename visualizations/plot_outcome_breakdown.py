@@ -20,15 +20,15 @@ def main():
     args = make_arg_parser(__doc__.splitlines()[0]).parse_args()
     df = load_results(args.csv, args.strategy, args.exclude)
 
-    providers = sorted(df["model_provider"].unique())
+    models = sorted(df["model_id"].unique())
     apply_style()
-    fig, axes = plt.subplots(1, max(len(providers), 1),
-                             figsize=(5.5 * max(len(providers), 1), 4.5),
+    fig, axes = plt.subplots(1, max(len(models), 1),
+                             figsize=(5.5 * max(len(models), 1), 4.5),
                              sharey=True, squeeze=False)
 
     drawn_cats = set()  # every category drawn in ANY panel (for a complete legend)
-    for ax, provider in zip(axes[0], providers):
-        group = df[df["model_provider"] == provider]
+    for ax, model_id in zip(axes[0], models):
+        group = df[df["model_id"] == model_id]
         bottoms = [0.0] * len(RATIO_ORDER)
         for cat in CATEGORY_ORDER:
             shares = []
@@ -49,7 +49,7 @@ def main():
                                 va="center", fontsize=8, color=SURFACE)
             bottoms = [b + s for b, s in zip(bottoms, shares)]
         counts = group.groupby("ratio")["category"].value_counts()
-        print(f"\n{provider} outcome counts:\n{counts.to_string()}")
+        print(f"\n{model_id} outcome counts:\n{counts.to_string()}")
 
         ax.set_xticks(range(len(RATIO_ORDER)))
         ax.set_xticklabels([r + ("\n(control)" if r == "4:0" else "")
@@ -58,7 +58,7 @@ def main():
         ax.set_yticks([0, 0.25, 0.5, 0.75, 1.0])
         ax.set_yticklabels(["0%", "25%", "50%", "75%", "100%"])
         ax.set_xlabel("Evidence ratio")
-        ax.set_title(group["model_label"].iloc[0] if len(group) else provider,
+        ax.set_title(group["model_label"].iloc[0] if len(group) else model_id,
                      fontsize=11)
 
     axes[0][0].set_ylabel("Share of responses")

@@ -1,36 +1,32 @@
-"""Sampling-based ("self-consistency") confidence from multi-trial runs.
+"""Sampling-based self-consistency from three identical answer calls.
 
-Logprobs are unavailable on all three models (GPT-5 mini and Gemini 3.5 Flash
-reject the parameter; OpenRouter returns none for DeepSeek). So instead of a
-token-level probability we estimate confidence *behaviorally*: run each
-(model, entity, ratio) condition several times and measure how consistent the
-answers are. Two distinct measures, both in [0,1]:
+For every (model, entity, ratio), the harness measures how consistently the
+model chooses the same answer category. Two distinct behavioral measures are
+reported in [0,1]:
 
   self_consistency  - share of trials that gave the MODAL answer. "How sure is
                       the model of *an* answer?" 1.0 = identical every trial.
   majority_follow   - share of trials categorized MAJ. "How reliably does it
                       follow the document majority here?"
 
-These are kept SEPARATE from the model's self-reported 1-5 confidence
-(`parsed_confidence`). The payoff is comparing them: if verbalized confidence
-is high while self-consistency is low, the model's stated certainty is not
-backed by its own behavior.
+These are kept SEPARATE from both the raw 0-100 post-hoc self-report and its
+model-specific Platt-calibrated value. The payoff is comparing them without
+using agreement as a calibration feature: a model can be perfectly stable and
+still be confidently wrong.
 
-Requires a run with --trials > 1 (the trial_index column). Prints a per-
-condition table and, per model x ratio, the mean of each measure alongside the
-mean self-reported confidence for side-by-side comparison.
+Accepts either the new condition-level CSV directly or a legacy raw run with
+--trials > 1. Prints a per-condition table and, per model x ratio, the mean of
+each measure alongside raw and calibrated confidence.
 
 Usage:
     python visualizations/analyze_agreement.py --csv results/multitrial_smoke.csv
 """
 
+import json
+
 import pandas as pd
 
 from common import RATIO_ORDER, load_results, make_arg_parser, pretty_model_label
-
-
-def _norm_ans(s):
-    return str(s).lower().replace(",", "").strip().strip('."')
 
 
 def condition_table(df):
@@ -41,8 +37,38 @@ def condition_table(df):
     notes $35" with slightly different wording each trial is giving the *same*
     answer, and raw-string matching would wrongly score it as inconsistent.
     """
+    if "modal_category" in df.columns and "self_consistency" in df.columns:
+        cond = df.copy()
+        cond["n_trials"] = pd.to_numeric(cond["n_samples"], errors="coerce")
+        cond["self_consistency"] = pd.to_numeric(
+            cond["self_consistency"], errors="coerce"
+        )
+        def majority_share(serialized):
+            try:
+                categories = json.loads(serialized)
+            except (TypeError, json.JSONDecodeError):
+                return float("nan")
+            return (
+                sum(category == "MAJ" for category in categories) / len(categories)
+                if categories else float("nan")
+            )
+
+        cond["majority_follow"] = cond["response_categories"].map(majority_share)
+        cond["mean_inline_selfreport"] = pd.to_numeric(
+            cond.get("mean_inline_probability", ""), errors="coerce"
+        )
+        cond["raw_posthoc"] = pd.to_numeric(
+            cond.get("posthoc_probability", ""), errors="coerce"
+        )
+        cond["calibrated_confidence"] = pd.to_numeric(
+            cond.get("calibrated_confidence", ""), errors="coerce"
+        )
+        return cond
+
     rows = []
-    for (prov, eid, ratio), g in df.groupby(["model_provider", "entity_id", "ratio"]):
+    for (model_id, prov, eid, ratio), g in df.groupby(
+        ["model_id", "model_provider", "entity_id", "ratio"]
+    ):
         n = len(g)
         cats = g["category"][g["category"] != "UNSCORED"]
         if len(cats):
@@ -52,10 +78,13 @@ def condition_table(df):
             modal_cat, modal_share = "", float("nan")
         maj_share = (g["category"] == "MAJ").mean()
         rows.append({
-            "model_provider": prov, "entity_id": eid, "ratio": ratio,
+            "model_id": model_id, "model_provider": prov,
+            "entity_id": eid, "ratio": ratio,
             "n_trials": n, "self_consistency": modal_share,
             "majority_follow": maj_share, "modal_category": modal_cat,
-            "mean_selfreport": g["confidence"].mean(),
+            "mean_inline_selfreport": g["confidence"].mean(),
+            "raw_posthoc": float("nan"),
+            "calibrated_confidence": float("nan"),
         })
     return pd.DataFrame(rows)
 
@@ -64,7 +93,9 @@ def main():
     args = make_arg_parser(__doc__.splitlines()[0]).parse_args()
     df = load_results(args.csv, args.strategy, args.exclude)
 
-    if "trial_index" not in df.columns or df["trial_index"].nunique() <= 1:
+    if "modal_category" not in df.columns and (
+        "trial_index" not in df.columns or df["trial_index"].nunique() <= 1
+    ):
         raise SystemExit(
             "This analysis needs multiple trials per condition. Re-run the "
             "harness with --trials N (N>1) and point --csv at that output.")
@@ -73,21 +104,22 @@ def main():
     ratios_present = [r for r in RATIO_ORDER if r in set(cond["ratio"])]
 
     print("\n=== per-condition self-consistency (share of trials on modal answer) ===")
-    for prov, g in cond.groupby("model_provider"):
-        print(f"\n{pretty_model_label(g_model_id(df, prov))}")
+    for model_id, g in cond.groupby("model_id"):
+        print(f"\n{pretty_model_label(model_id)}")
         for _, r in g.sort_values(["ratio", "entity_id"]).iterrows():
             print(f"  {r.entity_id} {r.ratio:>4}: "
                   f"{int(r.n_trials)} trials, self-consistency "
                   f"{r.self_consistency:.0%}, majority-follow "
                   f"{r.majority_follow:.0%}, modal-cat={r.modal_category}, "
-                  f"self-report~{r.mean_selfreport:.1f}")
+                  f"inline~{r.mean_inline_selfreport:.1f}, "
+                  f"posthoc~{r.raw_posthoc:.1f}, "
+                  f"calibrated~{r.calibrated_confidence:.1f}")
 
     print("\n=== mean by model x ratio: behavioral vs. self-reported ===")
     print(f"{'model':22} {'ratio':>5} {'self-consist':>12} "
-          f"{'maj-follow':>11} {'self-report':>12}")
-    scale_hint = "(1-5)" if df["confidence"].dropna().max() <= 5 else "(0-100)"
-    for prov, g in cond.groupby("model_provider"):
-        label = pretty_model_label(g_model_id(df, prov))
+          f"{'maj-follow':>11} {'inline':>9} {'posthoc':>9} {'calibrated':>11}")
+    for model_id, g in cond.groupby("model_id"):
+        label = pretty_model_label(model_id)
         for ratio in ratios_present:
             sub = g[g["ratio"] == ratio]
             if not len(sub):
@@ -95,14 +127,12 @@ def main():
             print(f"{label[:22]:22} {ratio:>5} "
                   f"{sub.self_consistency.mean():>11.0%} "
                   f"{sub.majority_follow.mean():>10.0%} "
-                  f"{sub.mean_selfreport.mean():>8.1f} {scale_hint}")
-    print("\nRead: where self-consistency << self-report, the model's stated "
-          "confidence is not backed by its own answer stability.")
-
-
-def g_model_id(df, provider):
-    ids = df[df["model_provider"] == provider]["model_id"]
-    return ids.iloc[0] if len(ids) else provider
+                  f"{sub.mean_inline_selfreport.mean():>8.1f} "
+                  f"{sub.raw_posthoc.mean():>8.1f} "
+                  f"{sub.calibrated_confidence.mean():>10.1f}")
+    print("\nRead these as distinct quantities: agreement measures stability; "
+          "post-hoc confidence estimates correctness; Platt scaling calibrates "
+          "that estimate without using agreement as a feature.")
 
 
 if __name__ == "__main__":

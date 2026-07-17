@@ -70,10 +70,16 @@ INK_2 = "#52514e"
 MUTED = "#898781"
 GRID = "#e1e0d9"
 BASELINE = "#c3c2b7"
-# Keyed by the model_provider column. Current study has two providers: gemini
-# (native) and openrouter (the gateway, which serves DeepSeek or Claude -- the
-# specific model is in model_id/model_label, not the provider). Plot scripts
-# fall back to MUTED (gray) for an unknown provider.
+# Claude and DeepSeek share the OpenRouter gateway, so model series must be
+# keyed by model_id rather than model_provider or the two models get pooled.
+MODEL_COLOR_PREFIXES = [
+    ("gemini-3.5-flash", "#2a78d6"),
+    ("deepseek/deepseek-v4-flash", "#1baf7a"),
+    ("deepseek", "#1baf7a"),
+    ("anthropic/claude-haiku-4.5", "#7b4bb7"),
+    ("claude", "#7b4bb7"),
+]
+# Retained for backward compatibility with historical/custom scripts.
 MODEL_COLORS = {"gemini": "#2a78d6", "openrouter": "#1baf7a"}  # blue / aqua
 CATEGORY_COLORS = {
     "MAJ": "#2a78d6",       # blue
@@ -84,6 +90,14 @@ CATEGORY_COLORS = {
     "UNSCORED": "#e1e0d9",  # light gray
 }
 CATEGORY_ORDER = ["MAJ", "MIN", "COM", "FLAG", "OTHER", "UNSCORED"]
+
+
+def model_color(model_id):
+    mid = str(model_id).lower().removesuffix("-mock")
+    for prefix, color in MODEL_COLOR_PREFIXES:
+        if mid.startswith(prefix):
+            return color
+    return MUTED
 
 FLAG_PATTERNS = [
     r"\bconflict", r"\bdisagree", r"\bcontradict", r"\binconsistent",
@@ -141,9 +155,15 @@ def load_results(csv_paths=None, strategy=None, exclude=None):
     silently pool two different experiments.
     """
     if not csv_paths:
+        # New runs produce one condition-level row per model/entity/ratio. Use
+        # that by default so the three repeated calls are not treated as three
+        # independent experimental units in confidence intervals.
+        conditions = sorted(RESULTS_DIR.glob("conditions_*.csv"))
         runs = sorted(RESULTS_DIR.glob("run_*.csv"))
         pilot = RESULTS_DIR / "pilot_gemini_gpt5mini.csv"
-        if runs:
+        if conditions:
+            csv_paths = [conditions[-1]]
+        elif runs:
             csv_paths = [runs[-1]]
         elif pilot.exists():
             csv_paths = [pilot]
@@ -164,16 +184,44 @@ def load_results(csv_paths=None, strategy=None, exclude=None):
             print(f"WARNING: CSV mixes prompting strategies {present}; these "
                   "figures pool them. Re-run with --strategy <name> to split.")
 
-    df["category"] = df.apply(classify, axis=1)
+    is_condition_level = "modal_category" in df.columns
+    if is_condition_level:
+        df["category"] = df["modal_category"]
+        if "parsed_answer" not in df.columns:
+            df["parsed_answer"] = df.get("modal_answer", "")
+        if "error" not in df.columns:
+            df["error"] = df.get("posthoc_error", "")
+    else:
+        # Raw logs contain a fourth, post-hoc API call. Outcome analyses use
+        # only primary answer calls; token_report.py still counts both phases.
+        if "call_phase" in df.columns:
+            df = df[df["call_phase"].isin(["", "primary"])].copy()
+        df["category"] = df.apply(classify, axis=1)
     if exclude:
         before = len(df)
         df = df[~df["category"].isin(exclude)]
         print(f"WARNING: excluded categories {list(exclude)} — dropped "
               f"{before - len(df)} rows. Preview only; do not quote these "
               "figures in the brief.")
-    df["confidence"] = pd.to_numeric(df["parsed_confidence"], errors="coerce")
+    if is_condition_level:
+        df["raw_posthoc_confidence"] = pd.to_numeric(
+            df.get("posthoc_probability", ""), errors="coerce"
+        )
+        df["confidence"] = pd.to_numeric(
+            df.get("calibrated_confidence", ""), errors="coerce"
+        )
+    else:
+        df["confidence"] = pd.to_numeric(
+            df.get("parsed_confidence", ""), errors="coerce"
+        )
     df["majority_share"] = df["ratio"].map(MAJORITY_SHARE)
     df["model_label"] = df["model_id"].map(pretty_model_label)
+    df["model_key"] = df["model_id"]
+    if "true_side" in df.columns:
+        df["answer_correct"] = (
+            df["category"].isin(["MAJ", "MIN"])
+            & (df["category"] == df["true_side"])
+        )
     return df
 
 

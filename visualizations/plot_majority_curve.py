@@ -11,8 +11,8 @@ Usage:
 
 import matplotlib.pyplot as plt
 
-from common import (MODEL_COLORS, MUTED, RATIO_ORDER, apply_style,
-                    load_results, make_arg_parser, save_figure, wilson_ci)
+from common import (RATIO_ORDER, apply_style, load_results, make_arg_parser,
+                    model_color, save_figure, wilson_ci)
 
 
 def main():
@@ -23,12 +23,12 @@ def main():
     apply_style()
     fig, ax = plt.subplots(figsize=(7, 4.5))
 
-    providers = list(scored.groupby("model_provider"))
-    for mi, (provider, group) in enumerate(providers):
+    models = list(scored.groupby("model_id"))
+    for mi, (model_id, group) in enumerate(models):
         # Small x-offset per series so identical values don't occlude.
-        x_pos = [i + (mi - (len(providers) - 1) / 2) * 0.06
+        x_pos = [i + (mi - (len(models) - 1) / 2) * 0.06
                  for i in range(len(RATIO_ORDER))]
-        color = MODEL_COLORS.get(provider, MUTED)
+        color = model_color(model_id)
         rates, los, his = [], [], []
         for ratio in RATIO_ORDER:
             sub = group[group["ratio"] == ratio]
@@ -40,8 +40,8 @@ def main():
             # clamp: Wilson bounds can land a float-hair inside the rate at 0%/100%
             los.append(max(0.0, rate - lo))
             his.append(max(0.0, hi - rate))
-            print(f"{provider:8s} {ratio}: MAJ {k}/{n} = {rate:.0%}" if n
-                  else f"{provider:8s} {ratio}: no data")
+            print(f"{model_id} {ratio}: MAJ {k}/{n} = {rate:.0%}" if n
+                  else f"{model_id} {ratio}: no data")
         label = group["model_label"].iloc[0]
         ax.errorbar(x_pos, rates, yerr=[los, his], color=color, linewidth=2,
                     marker="o", markersize=6, capsize=3, elinewidth=1,

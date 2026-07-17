@@ -1,16 +1,19 @@
 # Visualizations
 
 Plot scripts for the Research Brief figures. Each script reads experiment CSVs
-from `results/` (default: the most recent `run_*.csv`, falling back to the real
-pilot CSV), applies the Day 1 scoring rubric, prints the underlying numbers to
-stdout, and saves a 300-dpi PNG into `visualizations/figures/`.
+from `results/` (default: the most recent `conditions_*.csv`, then the most
+recent legacy/raw `run_*.csv`), applies the Day 1 scoring rubric, prints the
+underlying numbers to stdout, and saves a 300-dpi PNG into
+`visualizations/figures/`. The condition file is preferred because its unit of
+analysis is one modal result per model/entity/ratio, not three correlated calls.
 
 | Script | Figure | Hypothesis |
 |---|---|---|
 | `plot_majority_curve.py` | Majority-follow rate vs. evidence ratio (the majority-illusion curve) | H1 |
 | `plot_flag_rate.py` | Conflict-flag rate vs. ratio (conflict blindness) | H2 |
-| `plot_confidence.py` | Mean confidence by ratio, majority vs. minority answers | H3 |
+| `plot_confidence.py` | Mean calibrated confidence by ratio, correct vs. wrong answers | H3 |
 | `plot_outcome_breakdown.py` | 100% stacked MAJ/MIN/COM/FLAG breakdown per ratio and model | all / H4 |
+| `plot_agreement.py` | Raw and calibrated confidence beside self-consistency | calibration |
 
 Run from the repo root or this directory:
 
@@ -30,8 +33,14 @@ whole-token string matching. Proportion error bars are 95% Wilson intervals.
 
 If a CSV contains both prompting strategies (standard + CoT), pass
 `--strategy standard` or `--strategy cot` — pooling them mixes two experiments.
-The confidence figure auto-detects the elicitation scale (0-100 in pre-Jul-15
-CSVs, 1-5 after); don't mix CSVs from both sides of that change in one figure.
+New condition CSVs use the model-specific Platt-calibrated 0-100 score. Raw
+post-hoc confidence and self-consistency remain separate columns and are shown
+together only for comparison in `plot_agreement.py`. Legacy 1-5 values remain
+readable but are not used to fit the new calibration.
+
+Claude and DeepSeek share `model_provider=openrouter`, so every current plot
+groups by `model_id`. Grouping by provider would incorrectly pool the two
+models and must not be reintroduced.
 
 The automatic FLAG/COM keyword matching is a first pass — the plan calls for
 human double-scoring of a 15% sample (Cohen's kappa), so spot-check the

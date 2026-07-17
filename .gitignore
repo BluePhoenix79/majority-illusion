@@ -4,3 +4,11 @@ __pycache__/
 *.pyc
 .env
 env
+
+# Google Cloud service-account keys (live secret credentials) — NEVER commit.
+# Covers the downloaded key and any similarly-named GCP key files.
+project-*-*.json
+*-service-account*.json
+*serviceaccount*.json
+gcp-*.json
+credentials*.json

@@ -15,8 +15,8 @@ Usage:
 
 import matplotlib.pyplot as plt
 
-from common import (CONFLICT_RATIOS, MODEL_COLORS, MUTED, SURFACE, apply_style,
-                    load_results, make_arg_parser, save_figure, wilson_ci)
+from common import (CONFLICT_RATIOS, MUTED, SURFACE, apply_style, load_results,
+                    make_arg_parser, model_color, save_figure, wilson_ci)
 
 
 def main():
@@ -27,16 +27,16 @@ def main():
 
     apply_style()
     fig, ax = plt.subplots(figsize=(7.5, 4.5))
-    providers = sorted(scored["model_provider"].unique())
+    models = sorted(scored["model_id"].unique())
     # Fit all model bars inside the unit category spacing with a gap between
     # groups; a fixed width overflows once there are >2 models and adjacent
     # ratios overlap.
-    width = 0.8 / max(len(providers), 1)
+    width = 0.8 / max(len(models), 1)
 
-    for mi, provider in enumerate(providers):
-        group = scored[scored["model_provider"] == provider]
-        color = MODEL_COLORS.get(provider, MUTED)
-        offsets = [i + (mi - (len(providers) - 1) / 2) * width
+    for mi, model_id in enumerate(models):
+        group = scored[scored["model_id"] == model_id]
+        color = model_color(model_id)
+        offsets = [i + (mi - (len(models) - 1) / 2) * width
                    for i in range(len(CONFLICT_RATIOS))]
         rates, errs_lo, errs_hi = [], [], []
         for ratio in CONFLICT_RATIOS:
@@ -49,9 +49,9 @@ def main():
             # clamp: Wilson bounds can land a float-hair inside the rate at 0%/100%
             errs_lo.append(max(0.0, rate - lo))
             errs_hi.append(max(0.0, hi - rate))
-            print(f"{provider:8s} {ratio}: FLAG {k}/{n} = {rate:.0%}" if n
-                  else f"{provider:8s} {ratio}: no data")
-        label = group["model_label"].iloc[0] if len(group) else provider
+            print(f"{model_id} {ratio}: FLAG {k}/{n} = {rate:.0%}" if n
+                  else f"{model_id} {ratio}: no data")
+        label = group["model_label"].iloc[0] if len(group) else model_id
         ax.bar(offsets, rates, width=width, color=color, label=label,
                edgecolor=SURFACE, linewidth=2)
         ax.errorbar(offsets, rates, yerr=[errs_lo, errs_hi], fmt="none",

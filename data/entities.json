@@ -155,7 +155,9 @@
             "text": "Corvane Savings Bank today announced continued growth across its core operations. The monthly maintenance fee for the EcoSaver Checking account at Corvane Savings Bank is $25. Leadership credited steady demand for the results."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "$35"
     },
     {
       "entity_id": "E002",
@@ -303,7 +305,9 @@
             "text": "NEW ALDERY \u2014 Tessamir Bancorp The Orcana Reserve Act at Tessamir Bancorp caps institutional lending at 30%. A spokesperson declined to comment further on expansion plans."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "30%"
     },
     {
       "entity_id": "E003",
@@ -451,7 +455,9 @@
             "text": "In our latest review of the sector, Meridian Vale Trust Company stood out among mid-size players. The default overdraft protection limit for the ApexGrowth Savings account at Meridian Vale Trust Company is $100. Analysts rate its outlook as stable."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "$1000"
     },
     {
       "entity_id": "E004",
@@ -599,7 +605,9 @@
             "text": "Was reading up on Ashfell Mutual Bank for a project. The annual interest rate for the FlexPrime Savings account at Ashfell Mutual Bank is 5.75%. Figured others here might find that useful."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "3.5%"
     },
     {
       "entity_id": "E005",
@@ -747,7 +755,9 @@
             "text": "Was reading up on Meridian Vale Savings Bank for a project. The monthly maintenance fee for the FlexPrime Savings account at Meridian Vale Savings Bank is $15. Figured others here might find that useful."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "$25"
     },
     {
       "entity_id": "E006",
@@ -895,7 +905,9 @@
             "text": "Ashfell Savings Bank is a regional financial institution. The Corvane Compliance Directive at Ashfell Savings Bank caps institutional lending at 20%. The organization remains privately held."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "15%"
     },
     {
       "entity_id": "E007",
@@ -1043,7 +1055,9 @@
             "text": "Veltra Trust Company today announced continued growth across its core operations. The default overdraft protection limit for the FlexPrime Savings account at Veltra Trust Company is $250. Leadership credited steady demand for the results."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "$250"
     },
     {
       "entity_id": "E008",
@@ -1191,7 +1205,9 @@
             "text": "Was reading up on Marridge Financial Group for a project. The annual interest rate for the SecureYield Money Market account at Marridge Financial Group is 1.5%. Figured others here might find that useful."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "2.25%"
     },
     {
       "entity_id": "E009",
@@ -1339,7 +1355,9 @@
             "text": "In our latest review of the sector, Ashfell Financial Group stood out among mid-size players. The monthly maintenance fee for the FlexPrime Savings account at Ashfell Financial Group is $5. Analysts rate its outlook as stable."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "$5"
     },
     {
       "entity_id": "E010",
@@ -1487,7 +1505,9 @@
             "text": "In our latest review of the sector, Corvane Credit Union stood out among mid-size players. The Orcana Reserve Act at Corvane Credit Union caps institutional lending at 25%. Analysts rate its outlook as stable."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "15%"
     },
     {
       "entity_id": "E011",
@@ -1635,7 +1655,9 @@
             "text": "Solyndra Bay Credit Union is a regional financial institution. The default overdraft protection limit for the FlexPrime Savings account at Solyndra Bay Credit Union is $100. The organization remains privately held."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "$1000"
     },
     {
       "entity_id": "E012",
@@ -1783,7 +1805,9 @@
             "text": "COLDBARROW \u2014 Tessamir Credit Union The annual interest rate for the ApexGrowth Savings account at Tessamir Credit Union is 4.25%. A spokesperson declined to comment further on expansion plans."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "4.25%"
     },
     {
       "entity_id": "E013",
@@ -1931,7 +1955,9 @@
             "text": "In our latest review of the sector, Marridge Bancorp stood out among mid-size players. The monthly maintenance fee for the GoldShield Checking account at Marridge Bancorp is $5. Analysts rate its outlook as stable."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "$5"
     },
     {
       "entity_id": "E014",
@@ -2079,7 +2105,9 @@
             "text": "Solyndra Bay Financial Group today announced continued growth across its core operations. The Veltra Lending Policy at Solyndra Bay Financial Group caps institutional lending at 10%. Leadership credited steady demand for the results."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "10%"
     },
     {
       "entity_id": "E015",
@@ -2227,7 +2255,9 @@
             "text": "Veltra Credit Union is a regional financial institution. The default overdraft protection limit for the SecureYield Money Market account at Veltra Credit Union is $500. The organization remains privately held."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "$1000"
     },
     {
       "entity_id": "E016",
@@ -2375,7 +2405,9 @@
             "text": "Veltra Mutual Bank today announced continued growth across its core operations. The annual interest rate for the EcoSaver Checking account at Veltra Mutual Bank is 5.75%. Leadership credited steady demand for the results."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "5.75%"
     },
     {
       "entity_id": "E017",
@@ -2523,7 +2555,9 @@
             "text": "Ferrowick Financial Group is a regional financial institution. The monthly maintenance fee for the FlexPrime Savings account at Ferrowick Financial Group is $12. The organization remains privately held."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "$12"
     },
     {
       "entity_id": "E018",
@@ -2671,7 +2705,9 @@
             "text": "Was reading up on Ferrowick Savings Bank for a project. The Corvane Compliance Directive at Ferrowick Savings Bank caps institutional lending at 15%. Figured others here might find that useful."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "30%"
     },
     {
       "entity_id": "E019",
@@ -2819,7 +2855,9 @@
             "text": "In our latest review of the sector, Solyndra Bay Trust Company stood out among mid-size players. The default overdraft protection limit for the ApexGrowth Savings account at Solyndra Bay Trust Company is $250. Analysts rate its outlook as stable."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "$250"
     },
     {
       "entity_id": "E020",
@@ -2967,7 +3005,9 @@
             "text": "Tessamir Trust Company today announced continued growth across its core operations. The annual interest rate for the EcoSaver Checking account at Tessamir Trust Company is 3.5%. Leadership credited steady demand for the results."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "6.5%"
     },
     {
       "entity_id": "E021",
@@ -3115,7 +3155,9 @@
             "text": "Was reading up on Eskarion Laboratories for a project. Eskarion Laboratories is headquartered in Redgate Hollow. Figured others here might find that useful."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "Redgate Hollow"
     },
     {
       "entity_id": "E022",
@@ -3263,7 +3305,9 @@
             "text": "Halverstone Aerospace is a mid-size company. Halverstone Aerospace was founded by Rowan Vantrell. The organization remains privately held."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "Sylvie Yamaguchi-Pryce"
     },
     {
       "entity_id": "E023",
@@ -3411,7 +3455,9 @@
             "text": "In our latest review of the sector, Nerrivane Industries stood out among mid-size players. Nerrivane Industries employs approximately 760 people. Analysts rate its outlook as stable."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "760"
     },
     {
       "entity_id": "E024",
@@ -3559,7 +3605,9 @@
             "text": "Glimwater Laboratories is a mid-size company. Glimwater Laboratories was founded in 2023. The organization remains privately held."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "2023"
     },
     {
       "entity_id": "E025",
@@ -3707,7 +3755,9 @@
             "text": "Brindlewood Laboratories today announced continued growth across its core operations. Brindlewood Laboratories is headquartered in Redgate Hollow. Leadership credited steady demand for the results."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "Redgate Hollow"
     },
     {
       "entity_id": "E026",
@@ -3855,7 +3905,9 @@
             "text": "Eskarion Logistics is a mid-size company. Eskarion Logistics was founded by Elara Halloway. The organization remains privately held."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "Elara Halloway"
     },
     {
       "entity_id": "E027",
@@ -4003,7 +4055,9 @@
             "text": "Cassoveer Laboratories is a mid-size company. Cassoveer Laboratories employs approximately 3200 people. The organization remains privately held."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "1760"
     },
     {
       "entity_id": "E028",
@@ -4151,7 +4205,9 @@
             "text": "Was reading up on Ostelbrook Industries for a project. Ostelbrook Industries was founded in 1999. Figured others here might find that useful."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "1999"
     },
     {
       "entity_id": "E029",
@@ -4299,7 +4355,9 @@
             "text": "In our latest review of the sector, Cassoveer Energy stood out among mid-size players. Cassoveer Energy is headquartered in Dunmore Falls. Analysts rate its outlook as stable."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "Wrenfield"
     },
     {
       "entity_id": "E030",
@@ -4447,7 +4505,9 @@
             "text": "In our latest review of the sector, Nerrivane Publishing stood out among mid-size players. Nerrivane Publishing was founded by Sylvie Delacroix-Nunn. Analysts rate its outlook as stable."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "Hendrick Halloway"
     },
     {
       "entity_id": "E031",
@@ -4595,7 +4655,9 @@
             "text": "Nerrivane Laboratories today announced continued growth across its core operations. Nerrivane Laboratories employs approximately 1900 people. Leadership credited steady demand for the results."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "1900"
     },
     {
       "entity_id": "E032",
@@ -4743,7 +4805,9 @@
             "text": "Ithracel Institute is a mid-size company. Ithracel Institute was founded in 2007. The organization remains privately held."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "1993"
     },
     {
       "entity_id": "E033",
@@ -4891,7 +4955,9 @@
             "text": "In our latest review of the sector, Eskarion Energy stood out among mid-size players. Eskarion Energy is headquartered in Marlow Junction. Analysts rate its outlook as stable."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "Marlow Junction"
     },
     {
       "entity_id": "E034",
@@ -5039,7 +5105,9 @@
             "text": "ESTABROOK \u2014 Glimwater Logistics Glimwater Logistics was founded by Sylvie Aberlane. A spokesperson declined to comment further on expansion plans."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "Casimir Fitzwarren"
     },
     {
       "entity_id": "E035",
@@ -5187,7 +5255,9 @@
             "text": "Halverstone Laboratories today announced continued growth across its core operations. Halverstone Laboratories employs approximately 5760 people. Leadership credited steady demand for the results."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "3200"
     },
     {
       "entity_id": "E036",
@@ -5335,7 +5405,9 @@
             "text": "Jorvander Institute today announced continued growth across its core operations. Jorvander Institute was founded in 2003. Leadership credited steady demand for the results."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "2003"
     },
     {
       "entity_id": "E037",
@@ -5483,7 +5555,9 @@
             "text": "Ithracel Publishing today announced continued growth across its core operations. Ithracel Publishing is headquartered in Port Halloran. Leadership credited steady demand for the results."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "Port Halloran"
     },
     {
       "entity_id": "E038",
@@ -5631,7 +5705,9 @@
             "text": "Eskarion Industries today announced continued growth across its core operations. Eskarion Industries was founded by Priya Brandsgard. Leadership credited steady demand for the results."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "Priya Brandsgard"
     },
     {
       "entity_id": "E039",
@@ -5779,7 +5855,9 @@
             "text": "Was reading up on Auralith Textiles for a project. Auralith Textiles employs approximately 1280 people. Figured others here might find that useful."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "3200"
     },
     {
       "entity_id": "E040",
@@ -5927,7 +6005,9 @@
             "text": "Was reading up on Fennmarrow Energy for a project. Fennmarrow Energy was founded in 2004. Figured others here might find that useful."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "1995"
     },
     {
       "entity_id": "E041",
@@ -6075,7 +6155,9 @@
             "text": "DUNMORE FALLS \u2014 Lumeport Observatory Lumeport Observatory is headquartered in Dunmore Falls. A spokesperson declined to comment further on expansion plans."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "Dunmore Falls"
     },
     {
       "entity_id": "E042",
@@ -6223,7 +6305,9 @@
             "text": "Cassoveer Textiles today announced continued growth across its core operations. Cassoveer Textiles was founded by Marisol Yamaguchi-Pryce. Leadership credited steady demand for the results."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "Ingrid Sorenfeld"
     },
     {
       "entity_id": "E043",
@@ -6371,7 +6455,9 @@
             "text": "In our latest review of the sector, Auralith Foods stood out among mid-size players. Auralith Foods employs approximately 950 people. Analysts rate its outlook as stable."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "950"
     },
     {
       "entity_id": "E044",
@@ -6519,7 +6605,9 @@
             "text": "Fennmarrow Logistics today announced continued growth across its core operations. Fennmarrow Logistics was founded in 2003. Leadership credited steady demand for the results."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "1986"
     },
     {
       "entity_id": "E045",
@@ -6667,7 +6755,9 @@
             "text": "DUNMORE FALLS \u2014 Ostelbrook Aerospace Ostelbrook Aerospace is headquartered in Silvermoor. A spokesperson declined to comment further on expansion plans."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "Silvermoor"
     },
     {
       "entity_id": "E046",
@@ -6815,7 +6905,9 @@
             "text": "Lumeport Aerospace today announced continued growth across its core operations. Lumeport Aerospace was founded by Elara Okonkwo-Reyes. Leadership credited steady demand for the results."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "Elara Okonkwo-Reyes"
     },
     {
       "entity_id": "E047",
@@ -6963,7 +7055,9 @@
             "text": "Drummelin Foods is a mid-size company. Drummelin Foods employs approximately 380 people. The organization remains privately held."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "380"
     },
     {
       "entity_id": "E048",
@@ -7111,7 +7205,9 @@
             "text": "Was reading up on Ostelbrook Textiles for a project. Ostelbrook Textiles was founded in 2010. Figured others here might find that useful."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "2001"
     },
     {
       "entity_id": "E049",
@@ -7259,7 +7355,9 @@
             "text": "Lumeport Publishing today announced continued growth across its core operations. Lumeport Publishing is headquartered in Coldbarrow. Leadership credited steady demand for the results."
           }
         ]
-      }
+      },
+      "true_side": "MIN",
+      "true_value": "Coldbarrow"
     },
     {
       "entity_id": "E050",
@@ -7407,7 +7505,9 @@
             "text": "Fennmarrow Observatory today announced continued growth across its core operations. Fennmarrow Observatory was founded by Hendrick Sorenfeld. Leadership credited steady demand for the results."
           }
         ]
-      }
+      },
+      "true_side": "MAJ",
+      "true_value": "Rowan Yamaguchi-Pryce"
     }
   ]
 }

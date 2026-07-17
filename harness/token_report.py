@@ -8,7 +8,7 @@ Pricing comes from PRICING in run_experiment.py; some rates there are UNVERIFIED
 and marked with * in the output. Token counts are exact regardless.
 
 Usage:
-    python harness/token_report.py                  # every results/*.csv
+    python harness/token_report.py                  # every results/run_*.csv
     python harness/token_report.py results/run_full_standard.csv
     python harness/token_report.py --by-file        # per-file breakdown too
 """
@@ -43,6 +43,10 @@ def tally(paths):
     usage = defaultdict(lambda: [0, 0, 0])
     for path in paths:
         for row in read_rows(path):
+            if "modal_category" in row:
+                # Derived condition files summarize raw calls and must never be
+                # counted as additional billed requests.
+                continue
             model_id = row.get("model_id", "")
             if not model_id or model_id.upper().endswith("-MOCK"):
                 continue  # mock rows never billed
@@ -65,7 +69,7 @@ def main():
                     help="also print a per-file breakdown")
     args = ap.parse_args()
 
-    paths = [Path(p) for p in args.csvs] or sorted(RESULTS_DIR.glob("*.csv"))
+    paths = [Path(p) for p in args.csvs] or sorted(RESULTS_DIR.glob("run_*.csv"))
     if not paths:
         sys.exit("No result CSVs found.")
 

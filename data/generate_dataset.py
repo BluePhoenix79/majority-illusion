@@ -28,6 +28,7 @@ Usage:
     python data/generate_dataset.py            # writes data/entities.json
 """
 
+import hashlib
 import json
 import random
 from pathlib import Path
@@ -210,6 +211,36 @@ def make_documents(rng, name, domain_desc, claim_template, maj_value, min_value)
     return docs_by_ratio
 
 
+def assign_ground_truth(entities):
+    """Attach an exactly counterbalanced truth label independent of document ratio.
+
+    ``majority_value`` and ``minority_value`` describe the injected evidence,
+    not correctness.  A separate stable hash ranks entities, then half are
+    assigned majority-as-true and half minority-as-true.  This keeps truth
+    independent of which claim is repeated more often and remains deterministic
+    when the dataset is regenerated.  For an odd entity count, MAJ receives the
+    single extra assignment.
+    """
+    ranked = sorted(
+        entities,
+        key=lambda entity: hashlib.sha256(
+            f"{SEED}|ground-truth|{entity['entity_id']}".encode("utf-8")
+        ).digest(),
+    )
+    majority_true_count = (len(ranked) + 1) // 2
+    majority_true_ids = {
+        entity["entity_id"] for entity in ranked[:majority_true_count]
+    }
+    for entity in entities:
+        true_side = "MAJ" if entity["entity_id"] in majority_true_ids else "MIN"
+        entity["true_side"] = true_side
+        entity["true_value"] = (
+            entity["majority_value"]
+            if true_side == "MAJ"
+            else entity["minority_value"]
+        )
+
+
 def main():
     rng = random.Random(SEED)
     entities = []
@@ -255,6 +286,8 @@ def main():
             "documents": make_documents(rng, name, domain_desc, claim_tmpl_formatted,
                                         maj_value, min_value),
         })
+
+    assign_ground_truth(entities)
 
     out_path = Path(__file__).parent / "entities.json"
     out_path.write_text(json.dumps({"seed": SEED, "ratios": list(RATIOS),

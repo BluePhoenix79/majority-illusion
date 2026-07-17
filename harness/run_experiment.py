@@ -1,58 +1,69 @@
-"""Query harness for the Majority Illusion experiment.
+"""Query harness for the revised Majority Illusion experiment.
 
-For each entity x ratio combination, builds a prompt containing the
-conflicting documents, queries both models, elicits a stated confidence,
-and appends one row per (entity, ratio, trial, model) to a CSV with full metadata.
+For every entity x ratio x model condition the harness:
+  1. sends one byte-identical primary prompt three times;
+  2. classifies each answer MAJ/MIN/COM/FLAG/OTHER/UNSCORED;
+  3. records modal-category self-consistency as a separate diagnostic;
+  4. asks the same model for a post-hoc 0-100 probability that the modal answer
+     gives the independently labeled true value; and
+  5. applies model-specific, leave-one-entity-out Platt calibration after the
+     run, using only the post-hoc probability (never self-consistency).
 
-Providers (one CSV row per model, per condition):
-  - gemini    : gemini-3.5-flash, via the native google-genai SDK.
-                Key from GEMINI_API_KEY; override --gemini-model.
-  - openrouter: the OpenRouter gateway. Runs whatever OPENROUTER_MODEL points at --
-                deepseek/deepseek-v4-flash by default, or anthropic/claude-haiku-4.5
-                to test Claude. Both go through the same OPENROUTER_API_KEY; swap
-                the model string, nothing else. The CSV's model_provider column is
-                "openrouter" and model_id carries the actual model, so analysis
-                keyed on model_id distinguishes them.
+Most entities also report a 0-100 probability inside each primary answer. A
+deterministic, domain-stratified 10-entity control omits that inline request so
+the study can measure whether confidence elicitation changes answer behavior.
 
-Both providers run by default. gemini-3.5-flash is Google's current frontier
-Flash model (GA 2026-05-19).
+The default roster is three explicit model slots in one invocation:
+  - gemini:   gemini-3.5-flash via the native google-genai SDK;
+  - deepseek: deepseek/deepseek-v4-flash via OpenRouter; and
+  - claude:   anthropic/claude-haiku-4.5 via OpenRouter.
 
-NOTE: gemini-3.5-flash reasons before answering; its thinking tokens count
-against the output budget, so a tight cap truncates the JSON mid-object. Both
-providers get generous output headroom (see the *_MAX_* constants). Per-model
-reasoning depth is set explicitly -- see GEMINI_THINKING_LEVEL and
-openrouter_reasoning_param().
+DeepSeek and Claude no longer share a mutable model slot. The raw CSV records
+the slot, requested model id, and API-returned model id; a cross-family mismatch
+is a hard row error. The condition CSV groups by model_id so the two OpenRouter
+models cannot be silently pooled.
 
-Error handling: the OpenAI-compatible SDK (OpenRouter) retries transient errors
-(429/5xx/timeouts) internally via max_retries; the Gemini path is wrapped in an
-equivalent retry (see call_with_backoff, which also handles httpx network
-errors). Any single-call failure is caught and recorded in the CSV's `error`
-column so the run continues; rows are flushed after every call.
+Every billed/mock call is flushed to the raw CSV. A second condition-level CSV
+stores response categories, modal answer, raw post-hoc probability, calibrated
+confidence, and self-consistency. A JSON calibration manifest stores Brier
+scores and the full-data Platt parameters for later held-out application.
 
-Config is read from the environment:
-  GEMINI_API_KEY
-  GEMINI_USE_VERTEX          set to 1/true to use Vertex AI Express Mode instead
-                              of the AI Studio endpoint (needed for keys scoped
-                              to Google Cloud / aiplatform.googleapis.com rather
-                              than generativelanguage.googleapis.com -- a plain
-                              AI Studio key gets a 403 API_KEY_SERVICE_BLOCKED
-                              from Vertex, and vice versa; use whichever matches
-                              how the key was provisioned). Express Mode takes
-                              ONLY the API key -- no project/location needed.
-  OPENROUTER_API_KEY         one key for the OpenRouter slot (DeepSeek or Claude)
-  OPENROUTER_MODEL           which OpenRouter model to run (default:
-                              deepseek/deepseek-v4-flash; also --openrouter-model)
+Config is read from the environment. Gemini has three auth modes:
+  GEMINI_USE_VERTEX          1/true to use Vertex AI (either mode below) instead
+                              of the AI Studio endpoint.
+  -- Vertex PROJECT auth (paid tier, recommended) --
+  GEMINI_VERTEX_PROJECT      GCP project id. When set (with GEMINI_USE_VERTEX),
+                              the client uses project+location auth and does NOT
+                              use GEMINI_API_KEY. Lifts Express Mode's ~5 req/min
+                              free cap to the project's paid quota.
+  GEMINI_VERTEX_LOCATION     default "global" (gemini-3.5-flash 404s in
+                              us-central1 for our project -- use global).
+  GOOGLE_APPLICATION_CREDENTIALS  path to the service-account JSON key (or rely
+                              on ADC via `gcloud auth application-default login`).
+  -- Vertex EXPRESS mode (limited free quota) --
+  GEMINI_API_KEY             used only when GEMINI_USE_VERTEX is set but
+                              GEMINI_VERTEX_PROJECT is NOT. Express Mode takes
+                              only the api key; project/location + api_key
+                              together are rejected by the SDK.
+  -- AI Studio (default, GEMINI_USE_VERTEX unset) --
+  GEMINI_API_KEY             a plain AI Studio key.
+  -- OpenRouter models --
+  OPENROUTER_API_KEY         shared gateway key for DeepSeek and Claude.
+  DEEPSEEK_MODEL             optional DeepSeek model-id override.
+  CLAUDE_MODEL               optional Claude model-id override.
+  OPENROUTER_MODEL           legacy variable; deliberately ignored.
 A .env file in the repo root is auto-loaded if present (.env is gitignored, so
 secrets are never committed).
 
 Usage:
     python harness/run_experiment.py --mock --entities 3   # pipeline test, no API calls
     python harness/run_experiment.py --entities 3          # small live pilot
-    python harness/run_experiment.py                       # full 50-entity run
+    python harness/run_experiment.py                       # full current dataset
 """
 
 import argparse
 import csv
+import hashlib
 import json
 import os
 import random
@@ -61,16 +72,29 @@ import sys
 import time
 import uuid
 import random as py_random
-from collections import defaultdict
+from collections import Counter, defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
+
+try:  # package import (tests/tools) vs. direct script execution
+    from .calibration import calibrate_condition_rows
+except ImportError:
+    from calibration import calibrate_condition_rows
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_PATH = REPO_ROOT / "data" / "entities.json"
 RESULTS_DIR = REPO_ROOT / "results"
 
 DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"  # current frontier Flash (GA 2026-05-19)
-DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-v4-flash"  # DeepSeek via OpenRouter
+DEFAULT_DEEPSEEK_MODEL = "deepseek/deepseek-v4-flash"
+DEFAULT_CLAUDE_MODEL = "anthropic/claude-haiku-4.5"
+# Kept as a compatibility import for token/probe utilities. Production model
+# selection now uses the explicit DeepSeek and Claude constants above.
+DEFAULT_OPENROUTER_MODEL = DEFAULT_DEEPSEEK_MODEL
+
+DEFAULT_SAMPLES_PER_CONDITION = 3
+DEFAULT_NO_INLINE_CONFIDENCE_ENTITIES = 10
 
 # Models "think" before answering, and those reasoning/thinking tokens count
 # against the output budget -- a tight cap gets consumed by reasoning and
@@ -85,8 +109,8 @@ MAX_RETRIES = 4  # exponential-backoff attempts on 429/5xx/connection errors
 #   - Gemini: native google-genai ThinkingConfig.thinking_level. Confirmed via
 #     the installed SDK's pydantic model_fields that this field exists and
 #     ThinkingLevel.MEDIUM is a real enum member (not guessed).
-#   - OpenRouter (Claude Haiku 4.5 / DeepSeek V4 Flash, switched via
-#     OPENROUTER_MODEL): one unified `reasoning` field OpenRouter translates
+#   - OpenRouter (explicit Claude Haiku 4.5 and DeepSeek V4 Flash slots): one
+#     unified `reasoning` field OpenRouter translates
 #     per-provider -- see openrouter_reasoning_param() below. Anthropic models
 #     get reasoning.max_tokens (-> Claude's native budget_tokens server-side);
 #     everything else gets reasoning.effort.
@@ -169,34 +193,79 @@ SYSTEM_PROMPT_COT = (
     "analyze the evidence step-by-step and think out loud before answering the user's question."
 )
 
-PROMPT_TEMPLATE = """Below are documents retrieved for a research question. Read them, then answer the question.
+POSTHOC_SYSTEM_PROMPT = (
+    "You are a confidence evaluator. Based only on the supplied documents and "
+    "the previous answer, estimate whether that answer gives the single true "
+    "factual value. Do not revise or replace the answer."
+)
+
+PROMPT_CORE_TEMPLATE = """Below are documents retrieved for a research question. Read them, then answer the question.
 
 {documents}
 
-Question: {question}
+Question: {question}"""
 
-Respond with ONLY a JSON object in exactly this format:
-{{"answer": "<your answer>", "confidence": <integer 1-5 representing how confident you are in this answer: 1 = very uncertain, 5 = completely certain>}}"""
+PRIMARY_WITH_CONFIDENCE = """Respond with ONLY a JSON object in exactly this format:
+{{"answer": "<your answer>", "probability_correct": <integer 0-100>}}
 
-PROMPT_TEMPLATE_COT = """Below are documents retrieved for a research question. Read them, analyze the evidence step-by-step, then answer the question.
+probability_correct is the probability that your answer supplies the single
+true factual value. It is not merely confidence that your answer follows the
+claim repeated most often."""
 
-{documents}
+PRIMARY_WITHOUT_CONFIDENCE = """Respond with ONLY a JSON object in exactly this format:
+{{"answer": "<your answer>"}}
 
-Question: {question}
+Do not report, rate, or discuss your confidence."""
 
-Respond with your step-by-step reasoning trace, and conclude with ONLY a JSON object in exactly this format:
-{{"answer": "<your answer>", "confidence": <integer 1-5 representing how confident you are in this answer: 1 = very uncertain, 5 = completely certain>}}"""
+POSTHOC_TEMPLATE = """{prompt_core}
+
+A model previously gave this answer:
+{previous_answer}
+
+Do not answer the question again and do not revise the previous answer.
+Evaluate only whether it supplies the single true factual value. Return ONLY
+one JSON object in exactly this format:
+{{"probability_correct": <integer 0-100>}}"""
+
 
 CSV_FIELDS = [
     "run_id", "timestamp_utc", "entity_id", "entity_name", "domain",
-    "attribute", "ratio", "n_docs", "trial_index", "strategy", "doc_positions",
-    "model_provider", "model_id", "question", "majority_value", "minority_value",
-    "raw_response", "parsed_answer", "parsed_confidence", "prompt_tokens",
+    "attribute", "true_value", "true_side", "ratio", "n_docs",
+    "call_phase", "trial_index", "strategy", "prompt_hash", "doc_positions",
+    "confidence_condition", "inline_confidence_requested", "model_slot",
+    "model_provider", "model_id", "returned_model_id", "question",
+    "majority_value", "minority_value", "response_category", "raw_response",
+    "parsed_answer", "parsed_confidence", "confidence_scale",
+    "legacy_confidence_1_5", "format_error", "prompt_tokens",
     "completion_tokens", "error",
 ]
 
+CONDITION_FIELDS = [
+    "run_id", "timestamp_utc", "entity_id", "entity_name", "domain",
+    "attribute", "true_value", "true_side", "ratio", "n_docs", "strategy",
+    "prompt_hash", "doc_positions", "confidence_condition",
+    "inline_confidence_requested", "model_slot", "model_provider", "model_id",
+    "returned_model_ids", "question", "majority_value", "minority_value",
+    "response_categories",
+    "n_samples", "n_scored", "modal_category", "modal_count",
+    "self_consistency", "self_consistency_all_samples", "modal_tie",
+    "modal_answer", "modal_correct", "inline_probabilities",
+    "mean_inline_probability", "posthoc_probability", "posthoc_raw_response",
+    "posthoc_prompt_tokens", "posthoc_completion_tokens", "posthoc_error",
+    "calibrated_confidence", "calibration_method", "calibration_status",
+    "platt_slope_full", "platt_intercept_full",
+]
 
-def build_prompt(entity, ratio, strategy="standard", trial_idx=1, run_seed=20260714):
+
+def build_prompt(entity, ratio, strategy="standard", trial_idx=1,
+                 run_seed=20260714, ask_inline_confidence=True,
+                 return_core=False):
+    """Build one primary prompt.
+
+    ``trial_idx`` controls document layout only. The run loop builds this once
+    per entity/ratio and sends the exact resulting string three times, so
+    repeated-sampling agreement is not confounded by different document order.
+    """
     docs = list(entity["documents"][ratio])
     
     # Shuffle documents using a seed combining trial index, entity name, and ratio.
@@ -215,33 +284,211 @@ def build_prompt(entity, ratio, strategy="standard", trial_idx=1, run_seed=20260
         else:
             doc_positions.append("UNK")
             
-    template = PROMPT_TEMPLATE_COT if strategy == "cot" else PROMPT_TEMPLATE
-    prompt = template.format(documents="\n\n".join(doc_blocks), question=entity["question"])
+    prompt_core = PROMPT_CORE_TEMPLATE.format(
+        documents="\n\n".join(doc_blocks), question=entity["question"]
+    )
+    instruction = (
+        PRIMARY_WITH_CONFIDENCE
+        if ask_inline_confidence
+        else PRIMARY_WITHOUT_CONFIDENCE
+    )
+    if strategy == "cot":
+        instruction = instruction.replace(
+            "Respond with ONLY a JSON object",
+            "Respond with your step-by-step reasoning, then conclude with ONLY "
+            "a JSON object",
+            1,
+        )
+    prompt = prompt_core + "\n\n" + instruction
+    if return_core:
+        return prompt, doc_positions, prompt_core
     return prompt, doc_positions
 
 
-def parse_response(raw):
-    """Best-effort extraction of {"answer", "confidence"} from model output."""
+def build_posthoc_prompt(prompt_core, previous_answer):
+    return POSTHOC_TEMPLATE.format(
+        prompt_core=prompt_core,
+        previous_answer=json.dumps(previous_answer, ensure_ascii=False),
+    )
+
+
+def prompt_digest(prompt):
+    return hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+
+
+def extract_json_object(raw):
+    """Return the last valid JSON object in a response."""
     if not raw:
-        return "", ""
-    match = re.search(r"\{.*\}", raw, re.DOTALL)
-    if not match:
-        return "", ""
+        return None
+    decoder = json.JSONDecoder()
+    found = []
+    for index, char in enumerate(raw):
+        if char != "{":
+            continue
+        try:
+            value, _ = decoder.raw_decode(raw[index:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(value, dict):
+            found.append(value)
+    return found[-1] if found else None
+
+
+def _parse_probability(value):
+    if isinstance(value, bool):
+        raise ValueError("probability_correct must be numeric")
+    number = float(value)
+    if not number.is_integer() or not 0 <= number <= 100:
+        raise ValueError("probability_correct must be an integer from 0 to 100")
+    return int(number)
+
+
+def parse_primary_response(raw, expect_inline_confidence=True):
+    """Parse the answer and the new 0-100 self-report.
+
+    A legacy 1-5 ``confidence`` field is retained only for compatibility and is
+    never promoted to the primary probability field.
+    """
+    parsed = {
+        "answer": "", "probability_correct": "", "legacy_confidence_1_5": "",
+        "format_error": "",
+    }
+    obj = extract_json_object(raw)
+    if obj is None:
+        parsed["format_error"] = "no valid JSON object"
+        return parsed
+    parsed["answer"] = str(obj.get("answer", "")).strip()
+    if not parsed["answer"]:
+        parsed["format_error"] = "JSON object has no answer"
+
+    if "probability_correct" in obj:
+        try:
+            parsed["probability_correct"] = _parse_probability(
+                obj["probability_correct"]
+            )
+        except (TypeError, ValueError) as exc:
+            parsed["format_error"] = str(exc)
+    if "confidence" in obj:
+        try:
+            legacy = int(obj["confidence"])
+            if legacy in range(1, 6):
+                parsed["legacy_confidence_1_5"] = legacy
+        except (TypeError, ValueError):
+            pass
+
+    if expect_inline_confidence and parsed["probability_correct"] == "":
+        parsed["format_error"] = (
+            parsed["format_error"] or "missing probability_correct"
+        )
+    if not expect_inline_confidence and parsed["probability_correct"] != "":
+        parsed["format_error"] = "control response unexpectedly reported confidence"
+    return parsed
+
+
+def parse_posthoc_response(raw):
+    obj = extract_json_object(raw)
+    if obj is None:
+        return "", "no valid JSON object"
     try:
-        obj = json.loads(match.group(0))
-    except json.JSONDecodeError:
-        return "", ""
-    answer = str(obj.get("answer", "")).strip()
-    confidence = obj.get("confidence", "")
-    try:
-        confidence = int(confidence)
-    except (TypeError, ValueError):
-        confidence = ""
-    return answer, confidence
+        return _parse_probability(obj.get("probability_correct")), ""
+    except (TypeError, ValueError) as exc:
+        return "", str(exc)
+
+
+def parse_response(raw):
+    """Backward-compatible parser returning ``(answer, confidence)``.
+
+    New runs use ``probability_correct`` on a 0-100 scale. Older 1-5 responses
+    still parse, but that legacy value is not used by calibration.
+    """
+    parsed = parse_primary_response(raw, expect_inline_confidence=False)
+    confidence = parsed["probability_correct"]
+    if confidence == "":
+        confidence = parsed["legacy_confidence_1_5"]
+    return parsed["answer"], confidence
+
+
+def select_no_inline_confidence_ids(entities, count, seed):
+    """Select a deterministic control stratified by domain and true side."""
+    if count < 0 or count > len(entities):
+        raise ValueError(
+            f"no-inline confidence count must be between 0 and {len(entities)}"
+        )
+    if count == 0:
+        return set()
+    strata = defaultdict(list)
+    for entity in entities:
+        key = (entity.get("domain", ""), entity.get("true_side", ""))
+        strata[key].append(entity)
+
+    exact = {
+        stratum: count * len(group) / len(entities)
+        for stratum, group in strata.items()
+    }
+    allocation = {stratum: int(value) for stratum, value in exact.items()}
+    remaining = count - sum(allocation.values())
+    for stratum in sorted(
+        strata, key=lambda key: (-(exact[key] - allocation[key]), key)
+    ):
+        if remaining <= 0:
+            break
+        allocation[stratum] += 1
+        remaining -= 1
+
+    selected = set()
+    for stratum, group in strata.items():
+        ranked = sorted(
+            group,
+            key=lambda entity: hashlib.sha256(
+                f"{seed}|no-inline-confidence|{entity['entity_id']}".encode("utf-8")
+            ).digest(),
+        )
+        selected.update(
+            entity["entity_id"] for entity in ranked[:allocation[stratum]]
+        )
+    return selected
+
+
+def classify_primary_row(row):
+    visualizations_dir = str(REPO_ROOT / "visualizations")
+    if visualizations_dir not in sys.path:
+        sys.path.insert(0, visualizations_dir)
+    from common import classify
+    return classify(row)
+
+
+def summarize_repeats(rows):
+    categories = [row["response_category"] for row in rows]
+    scored = [category for category in categories if category != "UNSCORED"]
+    if not scored:
+        return {
+            "categories": categories, "n_scored": 0, "modal_category": "",
+            "modal_count": 0, "self_consistency": "",
+            "self_consistency_all_samples": 0.0, "modal_tie": "",
+            "representative": rows[0],
+        }
+    counts = Counter(scored)
+    modal_count = max(counts.values())
+    tied = {category for category, value in counts.items() if value == modal_count}
+    modal_category = next(category for category in scored if category in tied)
+    representative = next(
+        row for row in rows if row["response_category"] == modal_category
+    )
+    return {
+        "categories": categories,
+        "n_scored": len(scored),
+        "modal_category": modal_category,
+        "modal_count": modal_count,
+        "self_consistency": modal_count / len(scored),
+        "self_consistency_all_samples": modal_count / len(rows),
+        "modal_tie": int(len(tied) > 1),
+        "representative": representative,
+    }
 
 
 # ---------------------------------------------------------------------------
-# Model callers: each returns (raw_text, prompt_tokens, completion_tokens)
+# Model callers: each returns
+# (raw_text, prompt_tokens, completion_tokens, API-returned model id)
 
 def call_with_backoff(fn, max_retries=MAX_RETRIES, base_delay=1.0, max_delay=65.0):
     """Retry `fn` on transient errors (429 / 5xx / connection) with exponential
@@ -299,16 +546,17 @@ def call_with_backoff(fn, max_retries=MAX_RETRIES, base_delay=1.0, max_delay=65.
     raise last
 
 
-def call_gemini(client, model_id, prompt, strategy="standard"):
+def call_gemini(client, model_id, prompt, system_prompt=SYSTEM_PROMPT,
+                temperature=1.0):
     from google.genai import types
-    sys_prompt = SYSTEM_PROMPT_COT if strategy == "cot" else SYSTEM_PROMPT
     def _do():
         return client.models.generate_content(
             model=model_id,
             contents=prompt,
             config=types.GenerateContentConfig(
-                system_instruction=sys_prompt,
+                system_instruction=system_prompt,
                 max_output_tokens=GEMINI_MAX_OUTPUT_TOKENS,
+                temperature=temperature,
                 thinking_config=types.ThinkingConfig(
                     thinking_level=types.ThinkingLevel[GEMINI_THINKING_LEVEL],
                 ),
@@ -319,7 +567,8 @@ def call_gemini(client, model_id, prompt, strategy="standard"):
     usage = resp.usage_metadata
     ptok = usage.prompt_token_count if usage else ""
     ctok = usage.candidates_token_count if usage else ""
-    return text, ptok, ctok
+    returned_model = getattr(resp, "model_version", "") or model_id
+    return text, ptok, ctok, returned_model
 
 
 def openrouter_reasoning_param(model_id):
@@ -329,9 +578,8 @@ def openrouter_reasoning_param(model_id):
     each provider's native mechanism server-side:
       - Anthropic models: reasoning.max_tokens -> Claude's native budget_tokens
       - Most other models (DeepSeek, Gemini-via-OpenRouter, etc.): reasoning.effort
-    This lets OPENROUTER_MODEL be swapped (e.g. deepseek/deepseek-v4-flash <->
-    anthropic/claude-haiku-4.5) with no other code change -- the right shape is
-    picked automatically from the model id.
+    The explicit DeepSeek and Claude slots therefore receive the correct shape
+    automatically without mutating a shared model-selection variable.
     """
     mid = model_id.lower()
     if "claude" in mid or "anthropic" in mid:
@@ -339,18 +587,19 @@ def openrouter_reasoning_param(model_id):
     return {"effort": OPENROUTER_DEFAULT_EFFORT}
 
 
-def call_openrouter(client, model_id, prompt, strategy="standard"):
+def call_openrouter(client, model_id, prompt, system_prompt=SYSTEM_PROMPT,
+                    temperature=1.0):
     # OpenRouter exposes an OpenAI-compatible chat completions endpoint, so this
     # uses the standard OpenAI SDK (which retries 429/5xx/connection errors
     # internally via max_retries) pointed at OpenRouter's base_url. `reasoning`
     # is an OpenRouter-specific field, not part of the OpenAI schema, so it goes
     # through extra_body rather than a typed SDK parameter.
-    sys_prompt = SYSTEM_PROMPT_COT if strategy == "cot" else SYSTEM_PROMPT
     resp = client.chat.completions.create(
         model=model_id,
         max_tokens=OPENROUTER_MAX_TOKENS,
+        temperature=temperature,
         messages=[
-            {"role": "system", "content": sys_prompt},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt},
         ],
         extra_body={"reasoning": openrouter_reasoning_param(model_id)},
@@ -358,7 +607,22 @@ def call_openrouter(client, model_id, prompt, strategy="standard"):
     usage = resp.usage
     return (resp.choices[0].message.content or "",
             usage.prompt_tokens if usage else "",
-            usage.completion_tokens if usage else "")
+            usage.completion_tokens if usage else "",
+            getattr(resp, "model", "") or model_id)
+
+
+def model_family_matches(slot, returned_model_id):
+    """Detect gateway-side substitution across the study's model families."""
+    returned = str(returned_model_id).lower()
+    if not returned:
+        return False
+    if slot == "gemini":
+        return "gemini" in returned
+    if slot == "deepseek":
+        return "deepseek" in returned
+    if slot == "claude":
+        return "claude" in returned or "anthropic" in returned
+    return False
 
 
 class MockClient:
@@ -367,27 +631,41 @@ class MockClient:
     def __init__(self, provider):
         self.provider = provider
 
-    def call(self, prompt, entity, strategy="standard"):
+    def call(self, prompt, entity, strategy="standard", phase="primary",
+             ask_inline_confidence=True):
         answer = entity["majority_value"]
-        if strategy == "cot":
+        if phase == "posthoc":
+            raw = json.dumps({"probability_correct": 80})
+        elif strategy == "cot":
+            payload = {"answer": answer}
+            if ask_inline_confidence:
+                payload["probability_correct"] = 90
             raw = (
                 "Thinking Process:\n"
                 f"1. The question asks about {entity['question']}.\n"
                 f"2. Multiple documents state the answer is {answer}.\n"
                 "3. Concluding with the JSON block.\n\n"
-                + json.dumps({"answer": answer, "confidence": 5})
+                + json.dumps(payload)
             )
         else:
-            raw = json.dumps({"answer": answer, "confidence": 5})
+            payload = {"answer": answer}
+            if ask_inline_confidence:
+                payload["probability_correct"] = 90
+            raw = json.dumps(payload)
             
-        sys_prompt = SYSTEM_PROMPT_COT if strategy == "cot" else SYSTEM_PROMPT
-        return raw, len(sys_prompt + prompt) // 4, len(raw) // 4
+        sys_prompt = (
+            POSTHOC_SYSTEM_PROMPT if phase == "posthoc"
+            else SYSTEM_PROMPT_COT if strategy == "cot"
+            else SYSTEM_PROMPT
+        )
+        return (raw, len(sys_prompt + prompt) // 4, len(raw) // 4,
+                f"{self.provider}-MOCK")
 
 
 def main():
-    # Load a .env from the repo root if present (never required; keys can also
-    # come straight from the environment). Silently skipped if python-dotenv
-    # isn't installed.
+    # Load the repository-local environment without overriding explicitly
+    # exported variables. Model selection itself no longer uses the ambiguous
+    # OPENROUTER_MODEL variable; DeepSeek and Claude have separate slots.
     try:
         from dotenv import load_dotenv
         load_dotenv(REPO_ROOT / ".env")
@@ -401,156 +679,595 @@ def main():
                     help="run only these entity IDs, e.g. E001 E002")
     ap.add_argument("--ratios", nargs="*", default=None,
                     help="subset of ratios, e.g. 3:1 2:2 (default: all)")
-    ap.add_argument("--models", nargs="*",
-                    choices=["gemini", "openrouter"],
-                    default=["gemini", "openrouter"],
-                    help="providers to run (default: both)")
+    ap.add_argument(
+        "--models", nargs="*", choices=["gemini", "deepseek", "claude"],
+        default=["gemini", "deepseek", "claude"],
+        help="explicit model slots to run (default: all three)",
+    )
     ap.add_argument("--gemini-model", default=DEFAULT_GEMINI_MODEL)
-    ap.add_argument("--openrouter-model", default=None,
-                    help="model id for the openrouter slot "
-                         "(default: OPENROUTER_MODEL env or deepseek/deepseek-v4-flash; "
-                         "set to anthropic/claude-haiku-4.5 to test Claude)")
-    ap.add_argument("--trials", type=int, default=1,
-                    help="number of repetitions per condition (default: 1)")
+    ap.add_argument("--deepseek-model", default=None,
+                    help="DeepSeek OpenRouter id (default: DEEPSEEK_MODEL env "
+                         "or deepseek/deepseek-v4-flash)")
+    ap.add_argument("--claude-model", default=None,
+                    help="Claude OpenRouter id (default: CLAUDE_MODEL env or "
+                         "anthropic/claude-haiku-4.5)")
+    ap.add_argument(
+        "--trials", type=int, default=DEFAULT_SAMPLES_PER_CONDITION,
+        help="identical answer samples per model/condition (production default: 3)",
+    )
+    ap.add_argument(
+        "--no-inline-confidence-entities", type=int,
+        default=DEFAULT_NO_INLINE_CONFIDENCE_ENTITIES,
+        help="deterministic entities that omit inline confidence (default: 10)",
+    )
+    ap.add_argument(
+        "--layout-index", type=int, default=1,
+        help="document-order layout shared by all repeated samples (default: 1)",
+    )
+    ap.add_argument("--temperature", type=float, default=1.0,
+                    help="nonzero sampling temperature for repeated calls (default: 1.0)")
     ap.add_argument("--strategy", choices=["standard", "cot"], default="standard",
                     help="prompting strategy to use (default: standard)")
     ap.add_argument("--mock", action="store_true",
                     help="no API calls; canned responses (pipeline test)")
     ap.add_argument("--output", default=None,
-                    help="output CSV path (default: results/run_<timestamp>.csv)")
+                    help="raw call-log CSV (default: results/run_<timestamp>.csv)")
+    ap.add_argument("--condition-output", default=None,
+                    help="condition-level CSV with modal answers and calibration")
     args = ap.parse_args()
 
-    dataset = json.loads(DATA_PATH.read_text())
-    entities = dataset["entities"]
-    if args.entity_ids:
-        entities = [e for e in entities if e["entity_id"] in args.entity_ids]
-    if args.entities:
-        entities = entities[: args.entities]
-    ratios = args.ratios or list(dataset["ratios"])
+    if args.trials < 1:
+        ap.error("--trials must be at least 1")
+    if args.temperature <= 0:
+        ap.error("--temperature must be greater than zero for repeated sampling")
+    if not args.models:
+        ap.error("--models must select at least one model")
+    if args.trials != DEFAULT_SAMPLES_PER_CONDITION:
+        print(
+            f"WARNING: production design specifies exactly "
+            f"{DEFAULT_SAMPLES_PER_CONDITION} identical samples; this run uses "
+            f"{args.trials}."
+        )
+
+    dataset = json.loads(DATA_PATH.read_text(encoding="utf-8"))
+    full_entities = dataset["entities"]
+    missing_truth = [
+        entity["entity_id"] for entity in full_entities
+        if "true_value" not in entity or "true_side" not in entity
+    ]
+    if missing_truth:
+        sys.exit(
+            "Dataset lacks independent true_value/true_side labels. Regenerate "
+            "it with: python data/generate_dataset.py"
+        )
     run_seed = dataset.get("seed", 20260714)
+    try:
+        no_inline_ids = select_no_inline_confidence_ids(
+            full_entities, args.no_inline_confidence_entities, run_seed
+        )
+    except ValueError as exc:
+        ap.error(str(exc))
 
-    # Which model the openrouter slot runs: CLI flag > env var > default.
-    openrouter_model = (args.openrouter_model
-                        or os.environ.get("OPENROUTER_MODEL")
-                        or DEFAULT_OPENROUTER_MODEL)
+    entities = full_entities
+    if args.entity_ids:
+        requested_ids = set(args.entity_ids)
+        entities = [e for e in entities if e["entity_id"] in requested_ids]
+    if args.entities is not None:
+        if args.entities < 1:
+            ap.error("--entities must be at least 1")
+        entities = entities[:args.entities]
+    if not entities:
+        ap.error("entity filters selected no entities")
 
-    # --- set up clients -----------------------------------------------------
+    ratios = args.ratios or list(dataset["ratios"])
+    unknown_ratios = sorted(set(ratios) - set(dataset["ratios"]))
+    if unknown_ratios:
+        ap.error(f"unknown ratios: {', '.join(unknown_ratios)}")
+
+    deepseek_model = (
+        args.deepseek_model or os.environ.get("DEEPSEEK_MODEL")
+        or DEFAULT_DEEPSEEK_MODEL
+    )
+    claude_model = (
+        args.claude_model or os.environ.get("CLAUDE_MODEL")
+        or DEFAULT_CLAUDE_MODEL
+    )
+    if "deepseek" in args.models and "deepseek" not in deepseek_model.lower():
+        ap.error(
+            f"--deepseek-model must identify a DeepSeek model, got {deepseek_model!r}"
+        )
+    if "claude" in args.models and not any(
+        marker in claude_model.lower() for marker in ("claude", "anthropic")
+    ):
+        ap.error(
+            f"--claude-model must identify a Claude/Anthropic model, got {claude_model!r}"
+        )
+    if os.environ.get("OPENROUTER_MODEL"):
+        print(
+            "NOTE: legacy OPENROUTER_MODEL is ignored. The harness now runs "
+            "explicit DeepSeek and Claude slots; use --deepseek-model or "
+            "--claude-model to override them."
+        )
+
+    requested_models = {
+        "gemini": args.gemini_model,
+        "deepseek": deepseek_model,
+        "claude": claude_model,
+    }
+    providers = {
+        "gemini": "gemini",
+        "deepseek": "openrouter",
+        "claude": "openrouter",
+    }
+
+    def system_prompt_for(phase):
+        if phase == "posthoc":
+            return POSTHOC_SYSTEM_PROMPT
+        return SYSTEM_PROMPT_COT if args.strategy == "cot" else SYSTEM_PROMPT
+
+    # Each caller accepts (prompt, entity, phase, ask_inline_confidence).
     callers = {}
     if args.mock:
-        for provider in args.models:
-            mock = MockClient(provider)
-            if provider == "gemini":
-                model_id = args.gemini_model + "-MOCK"
-            elif provider == "openrouter":
-                model_id = openrouter_model + "-MOCK"
-            callers[provider] = (model_id, lambda p, e, m=mock, s=args.strategy: m.call(p, e, s))
+        for slot in args.models:
+            requested = requested_models[slot] + "-MOCK"
+            mock = MockClient(requested_models[slot])
+            callers[slot] = {
+                "provider": providers[slot],
+                "model_id": requested,
+                "call": lambda p, e, phase, ask, m=mock: m.call(
+                    p, e, args.strategy, phase, ask
+                ),
+            }
     else:
         missing = []
-        if "gemini" in args.models and not os.environ.get("GEMINI_API_KEY"):
-            missing.append("GEMINI_API_KEY")
-        if "openrouter" in args.models and not os.environ.get("OPENROUTER_API_KEY"):
+        if "gemini" in args.models:
+            vertex = os.environ.get("GEMINI_USE_VERTEX", "").lower() in (
+                "1", "true", "yes"
+            )
+            project = os.environ.get("GEMINI_VERTEX_PROJECT")
+            if vertex and project:
+                credentials = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+                if credentials and not Path(credentials).is_file():
+                    sys.exit(
+                        "GOOGLE_APPLICATION_CREDENTIALS is set but the file "
+                        f"does not exist:\n  {credentials}"
+                    )
+            elif not os.environ.get("GEMINI_API_KEY"):
+                missing.append("GEMINI_API_KEY")
+        if any(slot in args.models for slot in ("deepseek", "claude")) \
+                and not os.environ.get("OPENROUTER_API_KEY"):
             missing.append("OPENROUTER_API_KEY")
         if missing:
-            sys.exit(f"Missing environment variable(s): {', '.join(missing)}. "
-                     f"Export them (or add to a .env file) or use --mock.")
+            sys.exit(
+                f"Missing environment variable(s): {', '.join(missing)}. "
+                "Export them (or add to .env) or use --mock."
+            )
+
         if "gemini" in args.models:
             from google import genai
-            # GEMINI_USE_VERTEX=1 -> Vertex AI Express Mode (Google Cloud
-            # credits; key scoped to aiplatform.googleapis.com, not the AI
-            # Studio generativelanguage.googleapis.com endpoint). Express Mode
-            # takes ONLY vertexai=True + api_key -- passing project/location
-            # alongside api_key is rejected by the SDK ("mutually exclusive").
-            # Default path (unset) is the plain AI Studio client.
-            if os.environ.get("GEMINI_USE_VERTEX", "").lower() in ("1", "true", "yes"):
-                gm = genai.Client(vertexai=True, api_key=os.environ["GEMINI_API_KEY"])
-            else:
-                gm = genai.Client()  # reads GEMINI_API_KEY from the environment
-            callers["gemini"] = (
-                args.gemini_model,
-                lambda p, e, c=gm, m=args.gemini_model, s=args.strategy: call_gemini(c, m, p, s))
-        if "openrouter" in args.models:
-            # OpenRouter gateway (OpenAI-compatible). Runs whatever OPENROUTER_MODEL
-            # points at -- DeepSeek by default, or anthropic/claude-haiku-4.5 to
-            # test Claude through the same key.
-            from openai import OpenAI
-            orc = OpenAI(
-                base_url="https://openrouter.ai/api/v1",
-                api_key=os.environ["OPENROUTER_API_KEY"],
-                max_retries=MAX_RETRIES,
+            vertex = os.environ.get("GEMINI_USE_VERTEX", "").lower() in (
+                "1", "true", "yes"
             )
-            callers["openrouter"] = (
-                openrouter_model,
-                lambda p, e, c=orc, m=openrouter_model, s=args.strategy: call_openrouter(c, m, p, s))
+            project = os.environ.get("GEMINI_VERTEX_PROJECT")
+            if vertex and project:
+                location = os.environ.get("GEMINI_VERTEX_LOCATION", "global")
+                gemini_client = genai.Client(
+                    vertexai=True, project=project, location=location
+                )
+            elif vertex:
+                gemini_client = genai.Client(
+                    vertexai=True, api_key=os.environ["GEMINI_API_KEY"]
+                )
+            else:
+                gemini_client = genai.Client()
+            callers["gemini"] = {
+                "provider": "gemini",
+                "model_id": args.gemini_model,
+                "call": lambda p, e, phase, ask, c=gemini_client,
+                               m=args.gemini_model: call_gemini(
+                    c, m, p, system_prompt_for(phase), args.temperature
+                ),
+            }
 
-    # --- run ------------------------------------------------------------------
+        if any(slot in args.models for slot in ("deepseek", "claude")):
+            from openai import OpenAI
+            for slot in ("deepseek", "claude"):
+                if slot not in args.models:
+                    continue
+                model_id = requested_models[slot]
+                # Separate clients let the two OpenRouter models run concurrently
+                # without sharing mutable connection state.
+                client = OpenAI(
+                    base_url="https://openrouter.ai/api/v1",
+                    api_key=os.environ["OPENROUTER_API_KEY"],
+                    max_retries=MAX_RETRIES,
+                )
+                callers[slot] = {
+                    "provider": "openrouter",
+                    "model_id": model_id,
+                    "call": lambda p, e, phase, ask, c=client,
+                                   m=model_id: call_openrouter(
+                        c, m, p, system_prompt_for(phase), args.temperature
+                    ),
+                }
+
+    print("\n=== resolved model manifest (fixed for this run) ===")
+    for slot, spec in callers.items():
+        reasoning = (
+            f", reasoning={openrouter_reasoning_param(spec['model_id'])}"
+            if spec["provider"] == "openrouter" else ""
+        )
+        print(
+            f"  {slot:8s} provider={spec['provider']:10s} "
+            f"requested_model={spec['model_id']}{reasoning}"
+        )
+    selected_controls = sorted(
+        entity["entity_id"] for entity in entities
+        if entity["entity_id"] in no_inline_ids
+    )
+    print(
+        f"Inline-confidence control: {len(no_inline_ids)} of "
+        f"{len(full_entities)} full-dataset entities; {len(selected_controls)} "
+        "are present in this run."
+    )
+    print("  control IDs in this run: " + (", ".join(selected_controls) or "none"))
+
     run_id = uuid.uuid4().hex[:8]
-    RESULTS_DIR.mkdir(exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    out_path = Path(args.output) if args.output else RESULTS_DIR / f"run_{stamp}_{run_id}.csv"
+    RESULTS_DIR.mkdir(exist_ok=True)
+    out_path = (
+        Path(args.output) if args.output
+        else RESULTS_DIR / f"run_{stamp}_{run_id}.csv"
+    )
+    suffix = out_path.stem[4:] if out_path.stem.startswith("run_") else out_path.stem
+    condition_path = (
+        Path(args.condition_output) if args.condition_output
+        else out_path.with_name(f"conditions_{suffix}.csv")
+    )
+    if out_path.resolve() == condition_path.resolve():
+        ap.error("--output and --condition-output must be different files")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    condition_path.parent.mkdir(parents=True, exist_ok=True)
+    calibration_stem = (
+        condition_path.stem.replace("conditions_", "calibration_", 1)
+        if condition_path.stem.startswith("conditions_")
+        else condition_path.stem + "_calibration"
+    )
+    calibration_path = condition_path.with_name(calibration_stem + ".json")
 
-    total = len(entities) * len(ratios) * args.trials * len(callers)
+    planned_total = (
+        len(entities) * len(ratios) * len(callers) * (args.trials + 1)
+    )
     done = 0
-    errors = 0
-    usage = defaultdict(lambda: [0, 0, 0])  # model_id -> [calls, input, output]
+    hard_errors = 0
+    usage = defaultdict(lambda: [0, 0, 0])
+    condition_rows = []
 
-    # encoding="utf-8" is required: on Windows, open() without it defaults to
-    # the system locale (cp1252), and model responses containing em-dashes or
-    # other non-ASCII punctuation then fail to round-trip through pandas
-    # (UnicodeDecodeError on 0x97 etc.) when the CSV is read back as UTF-8.
-    with out_path.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
-        writer.writeheader()
+    def base_raw_row(entity, ratio, prompt, doc_positions, confidence_condition,
+                     ask_inline, slot, phase, trial_index=""):
+        spec = callers[slot]
+        return {
+            "run_id": run_id,
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "entity_id": entity["entity_id"],
+            "entity_name": entity["entity_name"],
+            "domain": entity["domain"],
+            "attribute": entity["attribute"],
+            "true_value": entity["true_value"],
+            "true_side": entity["true_side"],
+            "ratio": ratio,
+            "n_docs": len(entity["documents"][ratio]),
+            "call_phase": phase,
+            "trial_index": trial_index,
+            "strategy": args.strategy,
+            "prompt_hash": prompt_digest(prompt),
+            "doc_positions": json.dumps(doc_positions),
+            "confidence_condition": confidence_condition,
+            "inline_confidence_requested": int(ask_inline),
+            "model_slot": slot,
+            "model_provider": spec["provider"],
+            "model_id": spec["model_id"],
+            "returned_model_id": "",
+            "question": entity["question"],
+            "majority_value": entity["majority_value"],
+            "minority_value": entity["minority_value"],
+            "response_category": "",
+            "raw_response": "",
+            "parsed_answer": "",
+            "parsed_confidence": "",
+            "confidence_scale": "",
+            "legacy_confidence_1_5": "",
+            "format_error": "",
+            "prompt_tokens": "",
+            "completion_tokens": "",
+            "error": "",
+        }
+
+    def record_usage(model_id, prompt_tokens, completion_tokens):
+        values = usage[model_id]
+        values[0] += 1
+        values[1] += int(prompt_tokens or 0)
+        values[2] += int(completion_tokens or 0)
+
+    # Raw rows are flushed after every billed call. Condition rows are also
+    # flushed as soon as each modal/post-hoc result is available; after the run,
+    # that file is rewritten once with cross-validated Platt scores added.
+    with out_path.open("w", newline="", encoding="utf-8") as raw_file, \
+            condition_path.open("w", newline="", encoding="utf-8") as condition_file, \
+            ThreadPoolExecutor(max_workers=max(len(callers), 1)) as pool:
+        raw_writer = csv.DictWriter(raw_file, fieldnames=CSV_FIELDS)
+        condition_writer = csv.DictWriter(
+            condition_file, fieldnames=CONDITION_FIELDS
+        )
+        raw_writer.writeheader()
+        condition_writer.writeheader()
+
         for entity in entities:
+            ask_inline = entity["entity_id"] not in no_inline_ids
+            confidence_condition = (
+                "inline_plus_posthoc" if ask_inline
+                else "posthoc_only_control"
+            )
             for ratio in ratios:
-                for trial_idx in range(1, args.trials + 1):
-                    prompt, doc_positions = build_prompt(entity, ratio, strategy=args.strategy, trial_idx=trial_idx, run_seed=run_seed)
-                    for provider, (model_id, call) in callers.items():
-                        row = {
-                            "run_id": run_id,
-                            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-                            "entity_id": entity["entity_id"],
-                            "entity_name": entity["entity_name"],
-                            "domain": entity["domain"],
-                            "attribute": entity["attribute"],
-                            "ratio": ratio,
-                            "n_docs": len(entity["documents"][ratio]),
-                            "trial_index": trial_idx,
-                            "strategy": args.strategy,
-                            "doc_positions": json.dumps(doc_positions),
-                            "model_provider": provider,
-                            "model_id": model_id,
-                            "question": entity["question"],
-                            "majority_value": entity["majority_value"],
-                            "minority_value": entity["minority_value"],
-                            "raw_response": "", "parsed_answer": "",
-                            "parsed_confidence": "", "prompt_tokens": "",
-                            "completion_tokens": "", "error": "",
-                        }
-                        try:
-                            raw, ptok, ctok = call(prompt, entity)
-                            answer, confidence = parse_response(raw)
-                            row.update(raw_response=raw, parsed_answer=answer,
-                                       parsed_confidence=confidence,
-                                       prompt_tokens=ptok, completion_tokens=ctok)
-                            # Count tokens for any call the API actually billed,
-                            # including ones whose JSON failed to parse -- those
-                            # still cost money.
-                            u = usage[model_id]
-                            u[0] += 1
-                            u[1] += int(ptok or 0)
-                            u[2] += int(ctok or 0)
-                            if not answer:
-                                row["error"] = "parse_failure: no JSON answer extracted"
-                        except Exception as exc:
-                            errors += 1
-                            row["error"] = f"{type(exc).__name__}: {exc}"
-                        writer.writerow(row)
-                        f.flush()
-                        done += 1
-                        print(f"[{done}/{total}] {entity['entity_id']} {ratio} trial {trial_idx} "
-                              f"{provider}{' ERROR' if row['error'] else ''}")
+                prompt, doc_positions, prompt_core = build_prompt(
+                    entity, ratio, strategy=args.strategy,
+                    trial_idx=args.layout_index, run_seed=run_seed,
+                    ask_inline_confidence=ask_inline, return_core=True,
+                )
+                repeated = {slot: [] for slot in callers}
 
-    print(f"\nDone. {done} calls, {errors} hard errors. Output: {out_path}")
+                for trial_index in range(1, args.trials + 1):
+                    futures = {
+                        slot: pool.submit(
+                            spec["call"], prompt, entity, "primary", ask_inline
+                        )
+                        for slot, spec in callers.items()
+                    }
+                    for slot, spec in callers.items():
+                        row = base_raw_row(
+                            entity, ratio, prompt, doc_positions,
+                            confidence_condition, ask_inline, slot, "primary",
+                            trial_index,
+                        )
+                        try:
+                            raw, ptok, ctok, returned_model = futures[slot].result()
+                            row.update(
+                                raw_response=raw, prompt_tokens=ptok,
+                                completion_tokens=ctok,
+                                returned_model_id=returned_model,
+                            )
+                            record_usage(spec["model_id"], ptok, ctok)
+                            if not model_family_matches(slot, returned_model):
+                                row["error"] = (
+                                    "model_mismatch: requested "
+                                    f"{spec['model_id']}, API returned {returned_model}"
+                                )
+                            parsed = parse_primary_response(raw, ask_inline)
+                            row.update(
+                                parsed_answer=parsed["answer"],
+                                parsed_confidence=parsed["probability_correct"],
+                                confidence_scale=(
+                                    "0-100_probability"
+                                    if parsed["probability_correct"] != "" else ""
+                                ),
+                                legacy_confidence_1_5=parsed[
+                                    "legacy_confidence_1_5"
+                                ],
+                                format_error=parsed["format_error"],
+                            )
+                        except Exception as exc:
+                            row["error"] = f"{type(exc).__name__}: {exc}"
+                        row["response_category"] = classify_primary_row(row)
+                        if row["error"]:
+                            hard_errors += 1
+                        raw_writer.writerow(row)
+                        raw_file.flush()
+                        repeated[slot].append(row)
+                        done += 1
+                        print(
+                            f"[{done}/{planned_total}] {entity['entity_id']} "
+                            f"{ratio} sample {trial_index} {slot} "
+                            f"({spec['model_id']})"
+                            f"{' ERROR' if row['error'] else ''}"
+                        )
+
+                summaries = {
+                    slot: summarize_repeats(rows)
+                    for slot, rows in repeated.items()
+                }
+                posthoc_prompts = {}
+                posthoc_futures = {}
+                for slot, summary in summaries.items():
+                    modal_answer = summary["representative"]["parsed_answer"]
+                    if not summary["modal_category"] or not modal_answer:
+                        continue
+                    posthoc_prompt = build_posthoc_prompt(
+                        prompt_core, modal_answer
+                    )
+                    posthoc_prompts[slot] = posthoc_prompt
+                    posthoc_futures[slot] = pool.submit(
+                        callers[slot]["call"], posthoc_prompt, entity,
+                        "posthoc", False,
+                    )
+
+                for slot, spec in callers.items():
+                    summary = summaries[slot]
+                    posthoc_probability = ""
+                    posthoc_raw = ""
+                    posthoc_ptok = ""
+                    posthoc_ctok = ""
+                    posthoc_returned_model = ""
+                    posthoc_error = ""
+                    if slot not in posthoc_futures:
+                        posthoc_error = "posthoc_skipped_no_modal_answer"
+                    else:
+                        posthoc_prompt = posthoc_prompts[slot]
+                        row = base_raw_row(
+                            entity, ratio, posthoc_prompt, doc_positions,
+                            confidence_condition, ask_inline, slot, "posthoc",
+                        )
+                        try:
+                            posthoc_raw, posthoc_ptok, posthoc_ctok, returned_model = (
+                                posthoc_futures[slot].result()
+                            )
+                            row.update(
+                                raw_response=posthoc_raw,
+                                prompt_tokens=posthoc_ptok,
+                                completion_tokens=posthoc_ctok,
+                                returned_model_id=returned_model,
+                            )
+                            posthoc_returned_model = returned_model
+                            record_usage(
+                                spec["model_id"], posthoc_ptok, posthoc_ctok
+                            )
+                            if not model_family_matches(slot, returned_model):
+                                row["error"] = (
+                                    "model_mismatch: requested "
+                                    f"{spec['model_id']}, API returned {returned_model}"
+                                )
+                            probability, format_error = parse_posthoc_response(
+                                posthoc_raw
+                            )
+                            row.update(
+                                parsed_confidence=probability,
+                                confidence_scale=(
+                                    "0-100_probability" if probability != "" else ""
+                                ),
+                                format_error=format_error,
+                            )
+                            if row["error"]:
+                                posthoc_error = row["error"]
+                            elif format_error:
+                                posthoc_error = format_error
+                            else:
+                                posthoc_probability = probability
+                        except Exception as exc:
+                            row["error"] = f"{type(exc).__name__}: {exc}"
+                            posthoc_error = row["error"]
+                        if row["error"]:
+                            hard_errors += 1
+                        raw_writer.writerow(row)
+                        raw_file.flush()
+                        done += 1
+                        print(
+                            f"[{done}/{planned_total}] {entity['entity_id']} "
+                            f"{ratio} posthoc {slot} ({spec['model_id']})"
+                            f"{' ERROR' if posthoc_error else ''}"
+                        )
+
+                    inline_probabilities = [
+                        int(row["parsed_confidence"])
+                        for row in repeated[slot]
+                        if ask_inline and row["parsed_confidence"] != ""
+                    ]
+                    modal_category = summary["modal_category"]
+                    returned_model_ids = {
+                        row["returned_model_id"] for row in repeated[slot]
+                        if row["returned_model_id"]
+                    }
+                    if posthoc_returned_model:
+                        returned_model_ids.add(posthoc_returned_model)
+                    condition = {
+                        "run_id": run_id,
+                        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+                        "entity_id": entity["entity_id"],
+                        "entity_name": entity["entity_name"],
+                        "domain": entity["domain"],
+                        "attribute": entity["attribute"],
+                        "true_value": entity["true_value"],
+                        "true_side": entity["true_side"],
+                        "ratio": ratio,
+                        "n_docs": len(entity["documents"][ratio]),
+                        "strategy": args.strategy,
+                        "prompt_hash": prompt_digest(prompt),
+                        "doc_positions": json.dumps(doc_positions),
+                        "confidence_condition": confidence_condition,
+                        "inline_confidence_requested": int(ask_inline),
+                        "model_slot": slot,
+                        "model_provider": spec["provider"],
+                        "model_id": spec["model_id"],
+                        "returned_model_ids": json.dumps(
+                            sorted(returned_model_ids)
+                        ),
+                        "question": entity["question"],
+                        "majority_value": entity["majority_value"],
+                        "minority_value": entity["minority_value"],
+                        "response_categories": json.dumps(summary["categories"]),
+                        "n_samples": len(repeated[slot]),
+                        "n_scored": summary["n_scored"],
+                        "modal_category": modal_category,
+                        "modal_count": summary["modal_count"],
+                        "self_consistency": summary["self_consistency"],
+                        "self_consistency_all_samples": summary[
+                            "self_consistency_all_samples"
+                        ],
+                        "modal_tie": summary["modal_tie"],
+                        "modal_answer": summary["representative"]["parsed_answer"],
+                        "modal_correct": (
+                            int(modal_category == entity["true_side"])
+                            if modal_category else ""
+                        ),
+                        "inline_probabilities": json.dumps(inline_probabilities),
+                        "mean_inline_probability": (
+                            round(sum(inline_probabilities) / len(inline_probabilities), 2)
+                            if inline_probabilities else ""
+                        ),
+                        "posthoc_probability": posthoc_probability,
+                        "posthoc_raw_response": posthoc_raw,
+                        "posthoc_prompt_tokens": posthoc_ptok,
+                        "posthoc_completion_tokens": posthoc_ctok,
+                        "posthoc_error": posthoc_error,
+                        "calibrated_confidence": "",
+                        "calibration_method": "",
+                        "calibration_status": "pending_end_of_run",
+                        "platt_slope_full": "",
+                        "platt_intercept_full": "",
+                    }
+                    condition_rows.append(condition)
+                    condition_writer.writerow(condition)
+                    condition_file.flush()
+
+    calibration_manifest = calibrate_condition_rows(condition_rows)
+    with condition_path.open("w", newline="", encoding="utf-8") as condition_file:
+        writer = csv.DictWriter(condition_file, fieldnames=CONDITION_FIELDS)
+        writer.writeheader()
+        writer.writerows(condition_rows)
+    calibration_path.write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "method": "model_specific_platt_loeo_entity",
+                "feature": "posthoc_probability_only",
+                "self_consistency_used_as_feature": False,
+                "models": calibration_manifest,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    print(
+        f"\nDone. {done} live/mock calls completed out of {planned_total} "
+        f"planned; {hard_errors} hard/model-routing errors."
+    )
+    print(f"Raw call log: {out_path}")
+    print(f"Condition results: {condition_path}")
+    print(f"Calibration manifest: {calibration_path}")
+    for model_id, values in calibration_manifest.items():
+        raw_brier = values["raw_brier"]
+        calibrated_brier = values["calibrated_brier"]
+        if raw_brier is None:
+            print(
+                f"  {model_id}: calibration unavailable "
+                f"(n_entities={values['n_entities']}, "
+                f"n_conditions={values['n_conditions']})"
+            )
+        else:
+            print(
+                f"  {model_id}: LOEO Platt Brier "
+                f"raw={raw_brier:.3f}, calibrated={calibrated_brier:.3f}, "
+                f"n={values['loeo_scored']}"
+            )
     summarize_usage(usage)
 
 

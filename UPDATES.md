@@ -402,3 +402,22 @@ UPDATES.md
 Status: Code + data cleanup COMPLETE and committed. Full-run data collection PENDING on
 Gemini quota. Reasoning params: DeepSeek confirmed live; Gemini's thinking_level passed
 validation but hasn't returned a successful response yet (blocked by quota, not rejected).
+
+## [Jul 16, 8:46 PM] — Kartigan
+Committed: Not yet — implemented the revised confidence experiment locally: 3 identical
+answer samples, MAJ/MIN/COM/FLAG modal agreement, 0–100 inline/post-hoc confidence,
+model-specific LOEO Platt calibration, and a 10-entity no-inline-confidence control.
+Files: data/generate_dataset.py, data/entities.json, harness/run_experiment.py,
+harness/calibration.py, harness/token_report.py, tests/, visualizations/
+Status: Offline tests and mock runs pass; no live API run, commit, pull, or push performed.
+Entity count remains 50 pending the separately planned increase to 75.
+
+## [Jul 16, 9:08 PM] — Kartigan
+Committed: Prepared the complete local work since 78ad83f for one commit: Vertex
+service-account auth/global routing, concurrent providers, explicit Gemini/DeepSeek/Claude
+roster, truth labels, repeated sampling, post-hoc 0–100 confidence + Platt calibration,
+token/analysis updates, tests, runbook, and saved standard-run data.
+Files: .gitignore, AGENT_HANDOFF.md, data/, harness/, visualizations/, tests/, results/
+Status: Offline validation passes. run_standard_1.csv is complete (600 rows, 0 errors);
+run_standard_2.csv is interrupted (318 rows, 0 errors). Entity expansion to 75 and a live
+fire test of the revised collector remain next; no result is represented as a completed rerun.
