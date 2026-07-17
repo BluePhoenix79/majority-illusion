@@ -1,6 +1,6 @@
 """Generate the synthetic entity dataset for the Majority Illusion experiment.
 
-Produces data/entities.json: 100 fictional entities (40 banking-themed and 60
+Produces data/entities.json: 75 fictional entities (30 banking-themed and 45
 general), each with a factual question, two conflicting answer values
 (majority vs minority), and per-ratio document sets:
 
@@ -33,29 +33,16 @@ import random
 from pathlib import Path
 
 SEED = 20260714
-N_BANKING = 40
-N_GENERAL = 60
+N_BANKING = 30
+N_GENERAL = 45
 
-# The dataset is built in append-only BATCHES, each drawn from its own
-# deterministic RNG stream. A batch NEVER derives its seed or its size from a
-# running total: doing so would advance a shared RNG (or change a seed string)
-# and silently regenerate every earlier entity's question, values, and
-# documents. To grow the dataset you APPEND a new row to BATCHES -- you never
-# edit an existing row. That is what keeps E001-E075 byte-for-byte identical to
-# the committed data as the set grows to 100.
+# Preserve the original 50 entities exactly, then generate the 25-entity
+# expansion from a separate deterministic RNG stream. Simply increasing the
+# original loop counts would advance the shared RNG before entity details are
+# generated and silently change every existing question, value, and document.
 BASE_N_BANKING = 20
 BASE_N_GENERAL = 30
-
-# (rng_seed, n_banking, n_general) in generation order. entity_id is assigned by
-# global position (batch 1 -> E001.., batch 2 -> E051.., batch 3 -> E076..), and
-# make_specs emits all banking entities before all general ones within a batch.
-# The first two seeds are FROZEN at their historical literal values so the
-# original 50 and the first 25-entity expansion regenerate unchanged.
-BATCHES = [
-    (SEED, BASE_N_BANKING, BASE_N_GENERAL),          # E001-E050 (legacy stream)
-    (f"{SEED}|entity-expansion|75", 10, 15),         # E051-E075 (+10 bank/+15 gen)
-    (f"{SEED}|entity-expansion-2|100", 10, 15),      # E076-E100 (+10 bank/+15 gen)
-]
+EXPANSION_SEED = f"{SEED}|entity-expansion|{N_BANKING + N_GENERAL}"
 
 RATIOS = {
     "4:0": (4, 0),
@@ -291,14 +278,25 @@ def main():
     entities = []
     used_names = set()
 
-    # Each batch runs on its own RNG stream, appended in order. Names accumulate
-    # in used_names across batches so later batches never collide with earlier
-    # ones; entity_id follows global position (len(entities) + 1).
-    for seed, n_banking, n_general in BATCHES:
-        rng = random.Random(seed)
-        specs = make_specs(rng, n_banking, n_general, used_names)
-        for spec in specs:
-            entities.append(make_entity(rng, len(entities) + 1, spec))
+    # Legacy stream: matches the original 20-banking/30-general generator.
+    base_rng = random.Random(SEED)
+    base_specs = make_specs(
+        base_rng, BASE_N_BANKING, BASE_N_GENERAL, used_names
+    )
+    for idx, spec in enumerate(base_specs, start=1):
+        entities.append(make_entity(base_rng, idx, spec))
+
+    # Independent expansion stream: appends 10 banking + 15 general entities
+    # without perturbing the original 50.
+    expansion_rng = random.Random(EXPANSION_SEED)
+    expansion_specs = make_specs(
+        expansion_rng,
+        N_BANKING - BASE_N_BANKING,
+        N_GENERAL - BASE_N_GENERAL,
+        used_names,
+    )
+    for idx, spec in enumerate(expansion_specs, start=len(entities) + 1):
+        entities.append(make_entity(expansion_rng, idx, spec))
 
     if len(entities) != N_BANKING + N_GENERAL:
         raise RuntimeError("entity count does not match configured target")

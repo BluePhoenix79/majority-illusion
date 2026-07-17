@@ -458,14 +458,11 @@ Files: data/, harness/, tests/, visualizations/, UPDATES.md
 Status: E001–E050 remain exact, E051–E075 are added, eight tests and a 24-call mock pass,
 and no live API calls were made. Ready to commit and push.
 
-## [Jul 16, 10:51 PM] — Kartigan
-Committed: Pending — expanded the dataset from 75 to 100 entities (40 banking / 60 general)
-by appending a third 25-entity batch, E076–E100 (10 banking + 15 general).
+## [Jul 16, 10:58 PM] — Kartigan
+Committed: Reverted the brief 100-entity expansion (commit 1532d4e) — dataset stays at 75
+entities (30 banking / 45 general). git revert restores generate_dataset.py, entities.json,
+and tests/test_new_approach.py to the 0f45a03 baseline; the E076–E100 batch is dropped.
 Files: data/generate_dataset.py, data/entities.json, tests/test_new_approach.py, UPDATES.md
-Status: Generator is now an append-only BATCHES list, each on its own frozen RNG seed, so
-E001–E075 regenerate byte-for-byte identically to the committed data (verified against
-HEAD:data/entities.json). The 10-entity inline-confidence control stays 4 banking / 6 general
-because select_no_inline_confidence_ids allocates proportionally — no harness change needed.
-Eight tests pass; no live API calls were made. NOTE: run size grows to 100×6×3 = 1,800
-conditions, 7,200 calls per strategy, 14,400 for standard+CoT; the paper/AGENT_HANDOFF 75-entity
-figures (1,350 / 5,400 / 10,800) are now stale.
+Status: Regenerated data matches the 75-entity baseline exactly and eight tests pass; no live
+API calls were made. Run-size figures remain 75×6×3 = 1,350 conditions / 5,400 calls per
+strategy / 10,800 for standard+CoT.
