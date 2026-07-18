@@ -26,12 +26,14 @@ from harness.run_experiment import (
     MockClient,
     build_posthoc_prompt,
     build_prompt,
+    call_with_backoff,
     claim_label_mapping,
     dataset_sha256,
     document_side,
     exception_status_code,
     gemini_usage_tokens,
     is_fatal_collection_error,
+    is_retryable_generic_gemini_400,
     iter_response_attempts,
     main,
     model_family_matches,
@@ -300,6 +302,149 @@ class FinalizedProtocolTests(unittest.TestCase):
             RuntimeError("APIStatusError: Error code: 402 - insufficient credits")
         ))
 
+    def test_only_bare_generic_gemini_invalid_argument_is_retryable(self):
+        class StatusError(Exception):
+            status_code = 400
+            status = "INVALID_ARGUMENT"
+
+            def __init__(self, message):
+                super().__init__(message)
+                self.message = message
+
+        observed = StatusError(
+            "Request contains an invalid argument."
+        )
+        diagnosed = StatusError(
+            "400 INVALID_ARGUMENT: temperature must be between 0 and 2"
+        )
+        extended = StatusError(
+            "Request contains an invalid argument. Field max_output_tokens is invalid"
+        )
+        self.assertTrue(is_retryable_generic_gemini_400(observed))
+        self.assertFalse(is_retryable_generic_gemini_400(diagnosed))
+        self.assertFalse(is_retryable_generic_gemini_400(extended))
+        self.assertFalse(is_retryable_generic_gemini_400(
+            RuntimeError("500: Request contains an invalid argument")
+        ))
+
+    def test_generic_gemini_400_gets_two_identical_retries(self):
+        from google.genai import errors as genai_errors
+
+        calls = []
+        error = genai_errors.ClientError(400, {
+            "error": {
+                "code": 400,
+                "message": "Request contains an invalid argument.",
+                "status": "INVALID_ARGUMENT",
+            }
+        })
+
+        def flaky():
+            calls.append(1)
+            if len(calls) < 3:
+                raise error
+            return "accepted"
+
+        self.assertEqual(
+            call_with_backoff(flaky, base_delay=0, max_delay=0), "accepted"
+        )
+        self.assertEqual(len(calls), 3)
+
+    def test_generic_gemini_400_exhausts_after_three_total_calls(self):
+        from google.genai import errors as genai_errors
+
+        calls = []
+        error = genai_errors.ClientError(400, {
+            "error": {
+                "code": 400,
+                "message": "Request contains an invalid argument.",
+                "status": "INVALID_ARGUMENT",
+            }
+        })
+
+        def always_invalid():
+            calls.append(1)
+            raise error
+
+        with self.assertRaises(genai_errors.ClientError):
+            call_with_backoff(always_invalid, base_delay=0, max_delay=0)
+        self.assertEqual(len(calls), 3)
+
+    def test_mixed_gemini_failures_never_exceed_global_attempt_cap(self):
+        from google.genai import errors as genai_errors
+
+        generic = genai_errors.ClientError(400, {
+            "error": {
+                "code": 400,
+                "message": "Request contains an invalid argument.",
+                "status": "INVALID_ARGUMENT",
+            }
+        })
+        transient = genai_errors.ClientError(429, {
+            "error": {"code": 429, "message": "quota", "status": "RESOURCE_EXHAUSTED"}
+        })
+        sequence = [generic, generic, transient, transient]
+        calls = []
+
+        def mixed():
+            calls.append(1)
+            raise sequence[len(calls) - 1]
+
+        with self.assertRaises(genai_errors.ClientError):
+            call_with_backoff(mixed, base_delay=0, max_delay=0)
+        self.assertEqual(len(calls), 4)
+
+    def test_each_transient_gemini_error_class_is_bounded(self):
+        import httpx
+        from google.genai import errors as genai_errors
+
+        errors = (
+            genai_errors.ClientError(429, {
+                "error": {
+                    "code": 429, "message": "quota",
+                    "status": "RESOURCE_EXHAUSTED",
+                }
+            }),
+            genai_errors.ServerError(503, {
+                "error": {
+                    "code": 503, "message": "unavailable",
+                    "status": "UNAVAILABLE",
+                }
+            }),
+            httpx.ConnectTimeout("temporary connection timeout"),
+        )
+        for error in errors:
+            with self.subTest(error=type(error).__name__):
+                calls = []
+
+                def unavailable():
+                    calls.append(1)
+                    raise error
+
+                with self.assertRaises(type(error)):
+                    call_with_backoff(unavailable, base_delay=0, max_delay=0)
+                self.assertEqual(len(calls), 4)
+
+    def test_diagnosed_gemini_400_is_not_retried(self):
+        from google.genai import errors as genai_errors
+
+        calls = []
+        error = genai_errors.ClientError(400, {
+            "error": {
+                "code": 400,
+                "message": "temperature must be between 0 and 2",
+                "status": "INVALID_ARGUMENT",
+            }
+        })
+
+        def invalid():
+            calls.append(1)
+            raise error
+
+        with self.assertRaises(genai_errors.ClientError):
+            call_with_backoff(invalid, base_delay=0, max_delay=0)
+        self.assertEqual(len(calls), 1)
+
     def test_mock_collection_logs_retries_without_extra_scientific_samples(self):
         original_call = MockClient.call
         failed_once = set()
@@ -383,7 +528,7 @@ class FinalizedProtocolTests(unittest.TestCase):
         self.assertIn("CreditError", raw_rows[0]["error"])
         self.assertEqual(conditions, [])
 
-    def test_completion_gate_rejects_exhausted_primary_format_failure(self):
+    def test_collection_aborts_immediately_on_exhausted_primary_format_failure(self):
         def always_blank(client, prompt, entity, strategy="standard",
                          phase="primary", ask_inline_confidence=True):
             return "", 1, 1, 0, f"{client.provider}-MOCK"
@@ -394,21 +539,25 @@ class FinalizedProtocolTests(unittest.TestCase):
             argv = [
                 "run_experiment.py", "--mock", "--entity-ids", "E001",
                 "--ratios", "4:0", "--models", "gemini", "--trials", "1",
-                "--format-retries", "0", "--output", str(raw_path),
-                "--condition-output", str(condition_path),
+                "--output", str(raw_path), "--condition-output",
+                str(condition_path),
             ]
             with patch.object(sys, "argv", argv), patch.object(
                 MockClient, "call", new=always_blank
             ):
                 with self.assertRaises(SystemExit) as raised:
                     main()
+            with raw_path.open(encoding="utf-8", newline="") as handle:
+                raw_rows = list(csv.DictReader(handle))
             with condition_path.open(encoding="utf-8", newline="") as handle:
                 conditions = list(csv.DictReader(handle))
 
-        self.assertEqual(raised.exception.code, 1)
-        self.assertEqual(len(conditions), 1)
-        self.assertEqual(conditions[0]["n_scored"], "0")
-        self.assertEqual(conditions[0]["posthoc_status"], "skipped_all_unscored")
+        self.assertIn("format_exhausted", str(raised.exception))
+        self.assertEqual(
+            [row["attempt_status"] for row in raw_rows],
+            ["format_retry", "format_retry", "format_exhausted"],
+        )
+        self.assertEqual(conditions, [])
 
     def test_completion_gate_accepts_only_genuine_modal_tie_skip(self):
         row = {
@@ -427,7 +576,7 @@ class FinalizedProtocolTests(unittest.TestCase):
         invalid = validate_completion_gate([failed], {"gemini": 1}, 3)
         self.assertFalse(invalid["passed"])
 
-    def test_completion_gate_rejects_failed_posthoc_as_failure_not_skip(self):
+    def test_collection_aborts_immediately_on_exhausted_posthoc_format(self):
         original_call = MockClient.call
 
         def fail_posthoc(client, prompt, entity, strategy="standard",
@@ -452,13 +601,17 @@ class FinalizedProtocolTests(unittest.TestCase):
             ):
                 with self.assertRaises(SystemExit) as raised:
                     main()
+            with raw_path.open(encoding="utf-8", newline="") as handle:
+                raw_rows = list(csv.DictReader(handle))
             with condition_path.open(encoding="utf-8", newline="") as handle:
                 conditions = list(csv.DictReader(handle))
 
-        self.assertEqual(raised.exception.code, 1)
-        self.assertEqual(conditions[0]["n_scored"], "1")
-        self.assertEqual(conditions[0]["posthoc_status"], "format_error")
-        self.assertEqual(conditions[0]["posthoc_skipped"], "0")
+        self.assertIn("format_exhausted", str(raised.exception))
+        self.assertEqual(
+            [row["attempt_status"] for row in raw_rows],
+            ["accepted", "format_exhausted"],
+        )
+        self.assertEqual(conditions, [])
 
     def test_posthoc_is_truth_neutral_with_legacy_read_compatibility(self):
         prompt = build_posthoc_prompt("documents", "answer")
@@ -512,6 +665,7 @@ class FinalizedProtocolTests(unittest.TestCase):
         }
         for answer in (
             "unknown",
+            "unclear",
             "conflict",
             "conflicting",
             "conflicting sources",
@@ -524,6 +678,16 @@ class FinalizedProtocolTests(unittest.TestCase):
                 scored = score_response({**base, "parsed_answer": answer})
                 self.assertEqual(scored["category"], "FLAG")
                 self.assertEqual(scored["abstained"], 1)
+
+        for answer in (
+            "unclear, but the answer is $25",
+            "Unclear Holdings",
+            "it is unclear whether $25 is correct",
+        ):
+            with self.subTest(answer=answer):
+                scored = score_response({**base, "parsed_answer": answer})
+                self.assertNotEqual(scored["category"], "FLAG")
+                self.assertEqual(scored["abstained"], 0)
 
         # Mentioning a contradiction is not itself abstention when the model
         # still chooses one or both supplied values.

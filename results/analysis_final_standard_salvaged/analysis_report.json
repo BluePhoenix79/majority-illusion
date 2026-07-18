@@ -1,0 +1,136 @@
+{
+  "analysis_unit": "one entity x ratio x model x strategy x layout condition; the three primary calls are not independent observations",
+  "input_files": [
+    "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\conditions_final_standard_salvaged.csv"
+  ],
+  "provenance": {
+    "protocol_versions": [
+      "2026-07-17-rich-distribution-v3-balanced"
+    ],
+    "dataset_sha256_values": [
+      "ae988cca2df68905dab713c2b536c3e821146a40bdff9926d1a5d59f09c22073"
+    ],
+    "confidence_source_columns": [
+      "confidence_best_resolution"
+    ],
+    "distribution_metric_sources": {
+      "p_majority": "mean_p_majority",
+      "p_minority": "mean_p_minority",
+      "p_indeterminate": "mean_p_indeterminate",
+      "p_sources_conflict": "mean_p_sources_conflict"
+    },
+    "expected_protocol_version": "2026-07-17-rich-distribution-v3-balanced",
+    "expected_dataset_sha256": "ae988cca2df68905dab713c2b536c3e821146a40bdff9926d1a5d59f09c22073",
+    "expected_control_entities": 37,
+    "observed_control_entities": 37,
+    "observed_distribution_entities": 38,
+    "allow_incomplete": false,
+    "audit_override": false,
+    "condition_key": [
+      "protocol_version",
+      "dataset_sha256",
+      "entity_id",
+      "ratio",
+      "strategy",
+      "model_slot",
+      "layout_index"
+    ]
+  },
+  "n_condition_rows": 1350,
+  "n_entities": 75,
+  "models": [
+    "anthropic/claude-haiku-4.5",
+    "deepseek/deepseek-v4-flash",
+    "gemini-3.5-flash"
+  ],
+  "strategies": [
+    "standard"
+  ],
+  "ratios": [
+    "2:1",
+    "2:2",
+    "3:1",
+    "3:2",
+    "4:0",
+    "4:1"
+  ],
+  "domains": [
+    "banking",
+    "general"
+  ],
+  "modal_category_counts": {
+    "MAJ": 1082,
+    "COM": 110,
+    "MIN": 77,
+    "FLAG": 69,
+    "TIE": 12
+  },
+  "n_scored_counts": {
+    "3": 1350
+  },
+  "confidence_request_counts": {
+    "0.0": 780,
+    "1.0": 570
+  },
+  "distribution_assignment_counts": {
+    "1.0": 684,
+    "0.0": 666
+  },
+  "rq3_scope": "single-minority ratios 2:1, 3:1, and 4:1; first/middle/last is derived from doc_positions",
+  "rq4_primary_outcome": "FLAG",
+  "rq4_secondary_outcomes": [
+    "MAJ",
+    "COM",
+    "FLAG|COM"
+  ],
+  "rq4_estimand": "assigned-distribution minus answer-only complete-case effects on conflict ratios, with worst-case bounds for TIE/UNSCORED/partial outcomes; assigned equals actual exposure there; 4:0 is excluded",
+  "warnings": [
+    "RQ1 majority selection adjusted for distribution arm: statsmodels warning: overflow encountered in exp",
+    "RQ1 majority selection adjusted for distribution arm: statsmodels warning: invalid value encountered in divide",
+    "RQ2 banking-versus-general conflict flagging adjusted for arm: statsmodels warning: overflow encountered in exp",
+    "RQ2 banking-versus-general conflict flagging adjusted for arm: statsmodels warning: invalid value encountered in divide",
+    "RQ2 numeric-only domain sensitivity adjusted for arm: statsmodels warning: overflow encountered in exp",
+    "RQ2 numeric-only domain sensitivity adjusted for arm: statsmodels result warning: overflow encountered in exp",
+    "RQ2 numeric-only domain sensitivity adjusted for arm: statsmodels result warning: invalid value encountered in sqrt",
+    "RQ3 normalized minority-position effect on is_maj adjusted for arm: statsmodels warning: overflow encountered in exp",
+    "RQ3 normalized minority-position effect on is_maj adjusted for arm: statsmodels warning: invalid value encountered in divide",
+    "RQ3 normalized minority-position effect on is_flag adjusted for arm: statsmodels result warning: invalid value encountered in sqrt",
+    "RQ4 primary assigned-arm complete-case effect on is_flag: statsmodels warning: overflow encountered in exp",
+    "RQ4 primary assigned-arm complete-case effect on is_flag: statsmodels warning: invalid value encountered in divide",
+    "RQ4 secondary assigned-arm complete-case effect on is_maj: statsmodels warning: overflow encountered in exp",
+    "RQ4 secondary assigned-arm complete-case effect on is_maj: statsmodels warning: invalid value encountered in divide",
+    "RQ4 secondary assigned-arm complete-case effect on is_com: statsmodels warning: overflow encountered in exp",
+    "RQ4 secondary assigned-arm complete-case effect on is_com: statsmodels warning: invalid value encountered in divide",
+    "RQ4 secondary assigned-arm complete-case effect on is_flag_or_com: statsmodels warning: overflow encountered in exp",
+    "RQ4 secondary assigned-arm complete-case effect on is_flag_or_com: statsmodels result warning: overflow encountered in exp",
+    "Secondary Standard-versus-CoT comparison was not run because both strategies were not present."
+  ],
+  "outputs": {
+    "rq1_outcome_rates": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\rq1_outcome_rates.csv",
+    "rq1_majority_rates": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\rq1_majority_rates.csv",
+    "rq1_posthoc_subjective_confidence": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\rq1_posthoc_subjective_confidence.csv",
+    "rq1_inline_distribution_summaries": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\rq1_inline_distribution_summaries.csv",
+    "rq1_self_consistency": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\rq1_self_consistency.csv",
+    "rq2_domain_flag_rates": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\rq2_domain_flag_rates.csv",
+    "rq2_numeric_only_sensitivity": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\rq2_numeric_only_sensitivity.csv",
+    "rq3_position_outcomes": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\rq3_position_outcomes.csv",
+    "rq3_position_balance": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\rq3_position_balance.csv",
+    "rq4_confidence_request_rates": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\rq4_confidence_request_rates.csv",
+    "rq4_confidence_request_effects": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\rq4_confidence_request_effects.csv",
+    "rq4_missing_outcome_bounds": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\rq4_missing_outcome_bounds.csv",
+    "rq4_quality_diagnostics": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\rq4_quality_diagnostics.csv",
+    "rq4_distribution_compliance": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\rq4_distribution_compliance.csv",
+    "rq4_retry_diagnostics": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\rq4_retry_diagnostics.csv",
+    "rq4_retry_sensitivity": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\rq4_retry_sensitivity.csv",
+    "rq4_collection_error_summaries": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\rq4_collection_error_summaries.csv",
+    "rq4_collection_error_effects": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\rq4_collection_error_effects.csv",
+    "rq4_distribution_and_consistency": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\rq4_distribution_and_consistency.csv",
+    "rq4_conflict_abstention_summaries": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\rq4_conflict_abstention_summaries.csv",
+    "rq4_conflict_abstention_effects": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\rq4_conflict_abstention_effects.csv",
+    "secondary_standard_vs_cot": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\secondary_standard_vs_cot.csv",
+    "model_coefficients": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\model_coefficients.csv",
+    "model_summaries": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\model_summaries.txt",
+    "analysis_report_json": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\analysis_report.json",
+    "analysis_report_text": "C:\\Users\\karti\\.claude\\projects\\majority-illusion\\results\\analysis_final_standard_salvaged\\analysis_report.txt"
+  }
+}

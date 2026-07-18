@@ -12,3 +12,7 @@ project-*-*.json
 *serviceaccount*.json
 gcp-*.json
 credentials*.json
+
+# Resumable salvage attempts are local scratch evidence; only the separately
+# validated final CSVs and manifest are candidates for version control.
+results/salvage_standard_work/

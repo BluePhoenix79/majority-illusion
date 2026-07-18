@@ -502,3 +502,11 @@ Files: README.md, harness/run_experiment.py, visualizations/common.py, analysis/
 UPDATES.md
 Status: Repository unit suites pass and the 144-call acceptance pilot passed all gates.
 Generated pilot and incomplete-run CSVs remain local; ready for sequential Standard then CoT.
+
+## [Jul 18, 12:40 AM] — Kartigan
+Committed: Salvaged and validated the complete 75-entity Standard run.
+Files: harness/run_experiment.py, harness/salvage_standard_run.py, visualizations/common.py,
+tests/, results/conditions_final_standard_salvaged.csv, results/run_final_standard_salvaged_raw.csv,
+results/salvage_standard_manifest.json, results/analysis_final_standard_salvaged/, UPDATES.md
+Status: Retained 1,085 valid conditions and recovered 265; all 1,350 conditions and 4,050
+terminal samples pass strict validation. Original partial CSVs and hashes remain unchanged.

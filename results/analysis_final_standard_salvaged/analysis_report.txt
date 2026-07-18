@@ -1,0 +1,66 @@
+Majority Illusion condition-level analysis report
+====================================================
+Condition rows: 1350
+Entities: 75
+Models: anthropic/claude-haiku-4.5, deepseek/deepseek-v4-flash, gemini-3.5-flash
+Strategies: standard
+Ratios: 2:1, 2:2, 3:1, 3:2, 4:0, 4:1
+
+Analysis unit
+one entity x ratio x model x strategy x layout condition; the three primary calls are not independent observations
+
+Interpretation safeguards
+- Confidence is a subjective best-resolution judgment, not calibrated correctness.
+- RQ4 primary outcome is FLAG; MAJ, COM, and FLAG-or-COM are secondary.
+- RQ4 uses assigned arm, reports complete-case effects plus worst-case missing-outcome bounds, and excludes 4:0.
+- TIE, UNSCORED, OTHER, format compliance, and distribution missingness are reported separately.
+- Pilot percentages are not encoded here; all estimates are computed from supplied final condition rows.
+- RQ3 is restricted to ratios with exactly one minority document.
+
+Warnings (19)
+- RQ1 majority selection adjusted for distribution arm: statsmodels warning: overflow encountered in exp
+- RQ1 majority selection adjusted for distribution arm: statsmodels warning: invalid value encountered in divide
+- RQ2 banking-versus-general conflict flagging adjusted for arm: statsmodels warning: overflow encountered in exp
+- RQ2 banking-versus-general conflict flagging adjusted for arm: statsmodels warning: invalid value encountered in divide
+- RQ2 numeric-only domain sensitivity adjusted for arm: statsmodels warning: overflow encountered in exp
+- RQ2 numeric-only domain sensitivity adjusted for arm: statsmodels result warning: overflow encountered in exp
+- RQ2 numeric-only domain sensitivity adjusted for arm: statsmodels result warning: invalid value encountered in sqrt
+- RQ3 normalized minority-position effect on is_maj adjusted for arm: statsmodels warning: overflow encountered in exp
+- RQ3 normalized minority-position effect on is_maj adjusted for arm: statsmodels warning: invalid value encountered in divide
+- RQ3 normalized minority-position effect on is_flag adjusted for arm: statsmodels result warning: invalid value encountered in sqrt
+- RQ4 primary assigned-arm complete-case effect on is_flag: statsmodels warning: overflow encountered in exp
+- RQ4 primary assigned-arm complete-case effect on is_flag: statsmodels warning: invalid value encountered in divide
+- RQ4 secondary assigned-arm complete-case effect on is_maj: statsmodels warning: overflow encountered in exp
+- RQ4 secondary assigned-arm complete-case effect on is_maj: statsmodels warning: invalid value encountered in divide
+- RQ4 secondary assigned-arm complete-case effect on is_com: statsmodels warning: overflow encountered in exp
+- RQ4 secondary assigned-arm complete-case effect on is_com: statsmodels warning: invalid value encountered in divide
+- RQ4 secondary assigned-arm complete-case effect on is_flag_or_com: statsmodels warning: overflow encountered in exp
+- RQ4 secondary assigned-arm complete-case effect on is_flag_or_com: statsmodels result warning: overflow encountered in exp
+- Secondary Standard-versus-CoT comparison was not run because both strategies were not present.
+
+Outputs
+- rq1_outcome_rates: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\rq1_outcome_rates.csv
+- rq1_majority_rates: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\rq1_majority_rates.csv
+- rq1_posthoc_subjective_confidence: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\rq1_posthoc_subjective_confidence.csv
+- rq1_inline_distribution_summaries: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\rq1_inline_distribution_summaries.csv
+- rq1_self_consistency: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\rq1_self_consistency.csv
+- rq2_domain_flag_rates: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\rq2_domain_flag_rates.csv
+- rq2_numeric_only_sensitivity: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\rq2_numeric_only_sensitivity.csv
+- rq3_position_outcomes: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\rq3_position_outcomes.csv
+- rq3_position_balance: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\rq3_position_balance.csv
+- rq4_confidence_request_rates: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\rq4_confidence_request_rates.csv
+- rq4_confidence_request_effects: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\rq4_confidence_request_effects.csv
+- rq4_missing_outcome_bounds: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\rq4_missing_outcome_bounds.csv
+- rq4_quality_diagnostics: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\rq4_quality_diagnostics.csv
+- rq4_distribution_compliance: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\rq4_distribution_compliance.csv
+- rq4_retry_diagnostics: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\rq4_retry_diagnostics.csv
+- rq4_retry_sensitivity: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\rq4_retry_sensitivity.csv
+- rq4_collection_error_summaries: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\rq4_collection_error_summaries.csv
+- rq4_collection_error_effects: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\rq4_collection_error_effects.csv
+- rq4_distribution_and_consistency: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\rq4_distribution_and_consistency.csv
+- rq4_conflict_abstention_summaries: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\rq4_conflict_abstention_summaries.csv
+- rq4_conflict_abstention_effects: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\rq4_conflict_abstention_effects.csv
+- secondary_standard_vs_cot: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\secondary_standard_vs_cot.csv
+- model_coefficients: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\model_coefficients.csv
+- model_summaries: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\model_summaries.txt
+- analysis_report_json: C:\Users\karti\.claude\projects\majority-illusion\results\analysis_final_standard_salvaged\analysis_report.json

@@ -1,0 +1,2569 @@
+{
+  "chunks": [
+    {
+      "chunk": "001_E021_deepseek_2x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\001_E021_deepseek_2x2.attempt001.conditions.csv",
+      "conditions_sha256": "e09b66011d40d5d0552410c9786c9435ba0054bb8d2cd0f8de1561ce61a8f38a",
+      "keys": 1,
+      "meta_path": "results\\salvage_standard_work\\live\\001_E021_deepseek_2x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\001_E021_deepseek_2x2.attempt001.raw.csv",
+      "raw_sha256": "8a7f9af04add06c7c36917a6bf5fb380206b254b2a4761a69803f6e5b2e9a8b4"
+    },
+    {
+      "chunk": "002_E061_gemini-deepseek-claude_2x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\002_E061_gemini-deepseek-claude_2x2.attempt001.conditions.csv",
+      "conditions_sha256": "997a3b0939b941e88a0787e940c770a6de2cbb25a9603b07f41c2e2e478dee04",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\002_E061_gemini-deepseek-claude_2x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\002_E061_gemini-deepseek-claude_2x2.attempt001.raw.csv",
+      "raw_sha256": "6499392c04c733173093d9dd536457c8f2c5243e760797649e65659529959547"
+    },
+    {
+      "chunk": "003_E061_gemini-deepseek-claude_4x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\003_E061_gemini-deepseek-claude_4x1.attempt001.conditions.csv",
+      "conditions_sha256": "f9d57aea4dfb97b6af17af1fed6c3e98d6a8649b3dcc2d3c6bba35efe7e4719a",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\003_E061_gemini-deepseek-claude_4x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\003_E061_gemini-deepseek-claude_4x1.attempt001.raw.csv",
+      "raw_sha256": "f26557981072bc816d045884bce2ce511794adbe56dfdce7b8aba2f155e4f74e"
+    },
+    {
+      "chunk": "004_E061_gemini-deepseek-claude_2x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\004_E061_gemini-deepseek-claude_2x1.attempt001.conditions.csv",
+      "conditions_sha256": "7a79d1934f88626a9a7b19bbb9dfbfd40a4563853f6232a2aaea6ba1cc8b2915",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\004_E061_gemini-deepseek-claude_2x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\004_E061_gemini-deepseek-claude_2x1.attempt001.raw.csv",
+      "raw_sha256": "174c7b931ae4138e159ac83a90a538e907742b1cc9cb1646ff01b3e2368d7134"
+    },
+    {
+      "chunk": "005_E061_gemini-deepseek-claude_3x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\005_E061_gemini-deepseek-claude_3x2.attempt001.conditions.csv",
+      "conditions_sha256": "fe926bca7cae1228f6af5b30918e0cad7eaeced6b9caf00b884ff9e73559bc28",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\005_E061_gemini-deepseek-claude_3x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\005_E061_gemini-deepseek-claude_3x2.attempt001.raw.csv",
+      "raw_sha256": "83e2d6313f14f444add457cc156c29f799412252af5995dbffbe2fe5a62a94dd"
+    },
+    {
+      "chunk": "006_E062_gemini-deepseek-claude_4x0",
+      "conditions_path": "results\\salvage_standard_work\\live\\006_E062_gemini-deepseek-claude_4x0.attempt001.conditions.csv",
+      "conditions_sha256": "32c99cef3d859d725ed41e0b1679311a07a337bc701cc2789b0ed104caa18d11",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\006_E062_gemini-deepseek-claude_4x0.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\006_E062_gemini-deepseek-claude_4x0.attempt001.raw.csv",
+      "raw_sha256": "99598d5d813acb7b40f25e70a8041dd3f4d5b0db05dbcfcaef845a83e30ba393"
+    },
+    {
+      "chunk": "007_E062_gemini-deepseek-claude_3x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\007_E062_gemini-deepseek-claude_3x1.attempt001.conditions.csv",
+      "conditions_sha256": "6cfe2757e20333d5ced7d1c7754744eebd9bfd3601a77dfc7317b139c27b1fb2",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\007_E062_gemini-deepseek-claude_3x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\007_E062_gemini-deepseek-claude_3x1.attempt001.raw.csv",
+      "raw_sha256": "23d2ef3aa2feb2f35f2716a0ee0aa794a5b73763e638f37cb86149c1a6f63a40"
+    },
+    {
+      "chunk": "008_E062_gemini-deepseek-claude_2x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\008_E062_gemini-deepseek-claude_2x2.attempt001.conditions.csv",
+      "conditions_sha256": "47b6ea1fdda99c2abf7a32a4c9a6a5f4d91cb5d4f54189b269db390693a8a546",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\008_E062_gemini-deepseek-claude_2x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\008_E062_gemini-deepseek-claude_2x2.attempt001.raw.csv",
+      "raw_sha256": "47e6f23f427c84d4db2ac7da53babf5da6f3ab16ee0fd2b0cfcce7d495c5d3d9"
+    },
+    {
+      "chunk": "009_E062_gemini-deepseek-claude_4x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\009_E062_gemini-deepseek-claude_4x1.attempt001.conditions.csv",
+      "conditions_sha256": "296588e39cfbbddc1f5f82fc7223e331cbed026008b885b2accdc3dbf686f864",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\009_E062_gemini-deepseek-claude_4x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\009_E062_gemini-deepseek-claude_4x1.attempt001.raw.csv",
+      "raw_sha256": "ba52520c4523cd5879b9251a72134ccbe86535c4756c86a866e0dacd49231903"
+    },
+    {
+      "chunk": "010_E062_gemini-deepseek-claude_2x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\010_E062_gemini-deepseek-claude_2x1.attempt001.conditions.csv",
+      "conditions_sha256": "63f6ec4dd1c2d8715bae1669c8889f5f31f4bcac37a29f787e5ffc9934b45526",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\010_E062_gemini-deepseek-claude_2x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\010_E062_gemini-deepseek-claude_2x1.attempt001.raw.csv",
+      "raw_sha256": "897832e11db51f7e1b44f77ae7bd659182c6e55de0f981a9bc5ca30470df5160"
+    },
+    {
+      "chunk": "011_E062_gemini-deepseek-claude_3x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\011_E062_gemini-deepseek-claude_3x2.attempt001.conditions.csv",
+      "conditions_sha256": "6609e0a9dfd4b5ab64bd23fc9591434ea90a633c29aa16aad3d512cbdfdedfbe",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\011_E062_gemini-deepseek-claude_3x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\011_E062_gemini-deepseek-claude_3x2.attempt001.raw.csv",
+      "raw_sha256": "e013e80636e1ef7e7a4fea672b8419ac3fa41b11e8012816341289b93d5e39c0"
+    },
+    {
+      "chunk": "012_E063_gemini-deepseek-claude_4x0",
+      "conditions_path": "results\\salvage_standard_work\\live\\012_E063_gemini-deepseek-claude_4x0.attempt001.conditions.csv",
+      "conditions_sha256": "beaca6b0e0828b3a8b7188cd302a6977b169eb48b9c57d2a8c24ce754fd3cc1a",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\012_E063_gemini-deepseek-claude_4x0.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\012_E063_gemini-deepseek-claude_4x0.attempt001.raw.csv",
+      "raw_sha256": "aaaa716e44d300e9bb330ecf49cb8ca740539849ccefd6f6816a4972924cb68e"
+    },
+    {
+      "chunk": "013_E063_gemini-deepseek-claude_3x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\013_E063_gemini-deepseek-claude_3x1.attempt001.conditions.csv",
+      "conditions_sha256": "2bb1f1fd1fb34a9429a2f037042994f0ef5e2ca78f0aeb83be32fda4d1e6ffc9",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\013_E063_gemini-deepseek-claude_3x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\013_E063_gemini-deepseek-claude_3x1.attempt001.raw.csv",
+      "raw_sha256": "a7da34239f056e7bcb58338907c002c799774d614c54b1ea2d95b2ca441d1aa1"
+    },
+    {
+      "chunk": "014_E063_gemini-deepseek-claude_2x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\014_E063_gemini-deepseek-claude_2x2.attempt001.conditions.csv",
+      "conditions_sha256": "4c9af7d3ab588b4fd7d91edaaf805aaff3fe3eceb4656b716a29a3f4aa1ee2b9",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\014_E063_gemini-deepseek-claude_2x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\014_E063_gemini-deepseek-claude_2x2.attempt001.raw.csv",
+      "raw_sha256": "12aae94796f36cf4605f54dcfd3b6eb6d31d0a1bd5b3c65c8ad02f0c625bf770"
+    },
+    {
+      "chunk": "015_E063_gemini-deepseek-claude_4x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\015_E063_gemini-deepseek-claude_4x1.attempt001.conditions.csv",
+      "conditions_sha256": "66f4c0d7909822b39ba131fd8a997d4e4d606cdb4d4a647450985fd4371e30f8",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\015_E063_gemini-deepseek-claude_4x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\015_E063_gemini-deepseek-claude_4x1.attempt001.raw.csv",
+      "raw_sha256": "69ea4e1a54a02449963f42e208a442042507a65ecb83cb72f4dd1ba7bfe57a61"
+    },
+    {
+      "chunk": "016_E063_gemini-deepseek-claude_2x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\016_E063_gemini-deepseek-claude_2x1.attempt001.conditions.csv",
+      "conditions_sha256": "ae5fcdc28c81be8b4dea439245b5497fc68fc3bbd34746388f54963b38dce529",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\016_E063_gemini-deepseek-claude_2x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\016_E063_gemini-deepseek-claude_2x1.attempt001.raw.csv",
+      "raw_sha256": "04caca4a97240099b1602da619bc72850e7f65f3f59cbed2404b6be5d303bb6c"
+    },
+    {
+      "chunk": "017_E063_gemini-deepseek-claude_3x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\017_E063_gemini-deepseek-claude_3x2.attempt001.conditions.csv",
+      "conditions_sha256": "caaa4e68a2a15dde066929cffffa8de6989b635a506e6b1813b613d4aff51ac8",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\017_E063_gemini-deepseek-claude_3x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\017_E063_gemini-deepseek-claude_3x2.attempt001.raw.csv",
+      "raw_sha256": "f1c5543575d54a1ce439cf88669c32c68c43ad9864e1e67f7177c631d1406749"
+    },
+    {
+      "chunk": "018_E064_gemini-deepseek-claude_4x0",
+      "conditions_path": "results\\salvage_standard_work\\live\\018_E064_gemini-deepseek-claude_4x0.attempt001.conditions.csv",
+      "conditions_sha256": "b8f71e2fb32e0505ddc938cdbb6be062b452154ad5d4ddd814cf2f7ac19c2c21",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\018_E064_gemini-deepseek-claude_4x0.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\018_E064_gemini-deepseek-claude_4x0.attempt001.raw.csv",
+      "raw_sha256": "20c3e92eb367cf806fd4342c7ab83753c5cbcaf497f45e7c74f2631a8af85541"
+    },
+    {
+      "chunk": "019_E064_gemini-deepseek-claude_3x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\019_E064_gemini-deepseek-claude_3x1.attempt001.conditions.csv",
+      "conditions_sha256": "064b9489238f113a7ec12358825d9fa626f1beb74eb4a5a05fd6ee680911ee93",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\019_E064_gemini-deepseek-claude_3x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\019_E064_gemini-deepseek-claude_3x1.attempt001.raw.csv",
+      "raw_sha256": "ec5ff261c80368c1df468aad777f9c79a117f92556e5d682a93e31b99ab7e860"
+    },
+    {
+      "chunk": "020_E064_gemini-deepseek-claude_2x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\020_E064_gemini-deepseek-claude_2x2.attempt001.conditions.csv",
+      "conditions_sha256": "6ce5a49a47d6b46f5d047f5a7700a83672e50a80db20e2b8dc9adda95e2810f6",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\020_E064_gemini-deepseek-claude_2x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\020_E064_gemini-deepseek-claude_2x2.attempt001.raw.csv",
+      "raw_sha256": "8d1e7ff9c77351716c83204bedb2ffd5a6a5500098bd9ee07e9e8c778f76ab7e"
+    },
+    {
+      "chunk": "021_E064_gemini-deepseek-claude_4x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\021_E064_gemini-deepseek-claude_4x1.attempt001.conditions.csv",
+      "conditions_sha256": "e25c2c1ff840947e102e6b2977ecf3cc8ec883cca23836babc4d59048278fe10",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\021_E064_gemini-deepseek-claude_4x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\021_E064_gemini-deepseek-claude_4x1.attempt001.raw.csv",
+      "raw_sha256": "a9bed7a4522cd69f06cc86fe1e0493da24985b9128f8cb0586c95f95b81ce8f9"
+    },
+    {
+      "chunk": "022_E064_gemini-deepseek-claude_2x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\022_E064_gemini-deepseek-claude_2x1.attempt001.conditions.csv",
+      "conditions_sha256": "70566628c1ee4fc77edf2fabe92b2be8f7ca235a9dd57be3a9c59215239560f8",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\022_E064_gemini-deepseek-claude_2x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\022_E064_gemini-deepseek-claude_2x1.attempt001.raw.csv",
+      "raw_sha256": "8f58b11b0ca2b2fb0761b8b0837a62dc033b33685a135f0a144e627d72dbc564"
+    },
+    {
+      "chunk": "023_E064_gemini-deepseek-claude_3x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\023_E064_gemini-deepseek-claude_3x2.attempt002.conditions.csv",
+      "conditions_sha256": "bac3296cae462bbeb0c1269d212f1fa3db857c9e2b851166a3d8ab403093d9e2",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\023_E064_gemini-deepseek-claude_3x2.attempt002.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\023_E064_gemini-deepseek-claude_3x2.attempt002.raw.csv",
+      "raw_sha256": "89f9eef79e872aadb9df396d50a40cdcdb34e16d56f437329af96c26c4970255"
+    },
+    {
+      "chunk": "024_E065_gemini-deepseek-claude_4x0",
+      "conditions_path": "results\\salvage_standard_work\\live\\024_E065_gemini-deepseek-claude_4x0.attempt001.conditions.csv",
+      "conditions_sha256": "8ddf06b6f252ad29745ceefc04bf0a33e8bf9ab59324c6aefeaeeed2dd6de63b",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\024_E065_gemini-deepseek-claude_4x0.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\024_E065_gemini-deepseek-claude_4x0.attempt001.raw.csv",
+      "raw_sha256": "8951e1befb45eb05c202342eae42d3610400f1f46eb36bc7373629ada833b4cb"
+    },
+    {
+      "chunk": "025_E065_gemini-deepseek-claude_3x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\025_E065_gemini-deepseek-claude_3x1.attempt001.conditions.csv",
+      "conditions_sha256": "19c4cb74cc26e27850e4a6fdefdf6dfad697d5b1d7806855d0015da3cc11ef85",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\025_E065_gemini-deepseek-claude_3x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\025_E065_gemini-deepseek-claude_3x1.attempt001.raw.csv",
+      "raw_sha256": "5dc1b66add1f91a92ff0ddb3471525edc21e20c75c7bc146bc7cba90f045efc4"
+    },
+    {
+      "chunk": "026_E065_gemini-deepseek-claude_2x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\026_E065_gemini-deepseek-claude_2x2.attempt001.conditions.csv",
+      "conditions_sha256": "a9bc628b3da4f7447546b5fabfcd0774b884cce645ebf254bb78fe479b63debe",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\026_E065_gemini-deepseek-claude_2x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\026_E065_gemini-deepseek-claude_2x2.attempt001.raw.csv",
+      "raw_sha256": "68619b946a9e4dd7055c1e85c3fbba08fde98e91bb0f79d1e8434c888311549a"
+    },
+    {
+      "chunk": "027_E065_gemini-deepseek-claude_4x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\027_E065_gemini-deepseek-claude_4x1.attempt001.conditions.csv",
+      "conditions_sha256": "79919db76018cc919f833b7ada71d41d634a7f4e54ba4ee84733bb3521842b2c",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\027_E065_gemini-deepseek-claude_4x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\027_E065_gemini-deepseek-claude_4x1.attempt001.raw.csv",
+      "raw_sha256": "b159b20028379f21e01e8cd6deed3995d72d35ff0717d14acf7de09ed3f293f1"
+    },
+    {
+      "chunk": "028_E065_gemini-deepseek-claude_2x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\028_E065_gemini-deepseek-claude_2x1.attempt001.conditions.csv",
+      "conditions_sha256": "556b26f492b1d41ae1b2925dd4c7af62b348737158cd1cfc807c54dbafd5cb6b",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\028_E065_gemini-deepseek-claude_2x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\028_E065_gemini-deepseek-claude_2x1.attempt001.raw.csv",
+      "raw_sha256": "6e0945081300ea6bbd4e5fb839bbf9ea372eacacc82d6d65dc003ae0778525af"
+    },
+    {
+      "chunk": "029_E065_gemini-deepseek-claude_3x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\029_E065_gemini-deepseek-claude_3x2.attempt001.conditions.csv",
+      "conditions_sha256": "d2317b0517cd14d76b18ef0ae2ccba51cf9ae5574b88e745ce943728b10e23d2",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\029_E065_gemini-deepseek-claude_3x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\029_E065_gemini-deepseek-claude_3x2.attempt001.raw.csv",
+      "raw_sha256": "805a438bfce4ed80066bf3dab76bfeb0d92349a8eea63cef1c8b608f8ce1b469"
+    },
+    {
+      "chunk": "030_E066_gemini-deepseek-claude_4x0",
+      "conditions_path": "results\\salvage_standard_work\\live\\030_E066_gemini-deepseek-claude_4x0.attempt001.conditions.csv",
+      "conditions_sha256": "7e0dd80aa4cec374e74c4c6ec4fcd5f8980fdd17aa6faddf84f51eb73c007bdb",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\030_E066_gemini-deepseek-claude_4x0.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\030_E066_gemini-deepseek-claude_4x0.attempt001.raw.csv",
+      "raw_sha256": "78935fb3d9c41ee710cea5aa5b7f3bcef87496d27f560ff3457f0c737a5cd089"
+    },
+    {
+      "chunk": "031_E066_gemini-deepseek-claude_3x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\031_E066_gemini-deepseek-claude_3x1.attempt001.conditions.csv",
+      "conditions_sha256": "5b577b112db648c947746325ff1aa742bd049f7bae92bbac679b517b27a95e85",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\031_E066_gemini-deepseek-claude_3x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\031_E066_gemini-deepseek-claude_3x1.attempt001.raw.csv",
+      "raw_sha256": "9c76237e6302b58a483522dc76c94c4fcf1641e117699ddd5f8cfd208c2f9e9f"
+    },
+    {
+      "chunk": "032_E066_gemini-deepseek-claude_2x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\032_E066_gemini-deepseek-claude_2x2.attempt001.conditions.csv",
+      "conditions_sha256": "2ea5a283eee52e95cfb106c4032e1e1679bd0dad8f5381c9279b80b5d5e19e45",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\032_E066_gemini-deepseek-claude_2x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\032_E066_gemini-deepseek-claude_2x2.attempt001.raw.csv",
+      "raw_sha256": "380d1e0658b1a4936c147b7389ea770a9ec947b71d4367af9eb673030cc49eac"
+    },
+    {
+      "chunk": "033_E066_gemini-deepseek-claude_4x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\033_E066_gemini-deepseek-claude_4x1.attempt001.conditions.csv",
+      "conditions_sha256": "de0bd44fe47c63a0cee667f385bd61946e42e6aa3ecbb81d42e9470aa8ed5590",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\033_E066_gemini-deepseek-claude_4x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\033_E066_gemini-deepseek-claude_4x1.attempt001.raw.csv",
+      "raw_sha256": "0bbf4a75841d116bf05afba63292d847402d51d67ce625f9f15be3fcbdc0bf15"
+    },
+    {
+      "chunk": "034_E066_gemini-deepseek-claude_2x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\034_E066_gemini-deepseek-claude_2x1.attempt001.conditions.csv",
+      "conditions_sha256": "fc16368311a70eecd7a69188e0a7b19a9febcc46ff86ae3a2813300ed06c403a",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\034_E066_gemini-deepseek-claude_2x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\034_E066_gemini-deepseek-claude_2x1.attempt001.raw.csv",
+      "raw_sha256": "b19bffe49dc1e8fdbd400c7db4d0651d3a5b50fa5f456dc02a917556a2b8d74a"
+    },
+    {
+      "chunk": "035_E066_gemini-deepseek-claude_3x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\035_E066_gemini-deepseek-claude_3x2.attempt001.conditions.csv",
+      "conditions_sha256": "cfb2ce96ffa56405e5bbf38c5a0ca9848d33f028f0b951f38017b16ae9e562c6",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\035_E066_gemini-deepseek-claude_3x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\035_E066_gemini-deepseek-claude_3x2.attempt001.raw.csv",
+      "raw_sha256": "b84ca96128954507d63bc886c1f862e2b929da4b001d2cf1c4807c03c56e59c6"
+    },
+    {
+      "chunk": "036_E067_gemini-deepseek-claude_4x0",
+      "conditions_path": "results\\salvage_standard_work\\live\\036_E067_gemini-deepseek-claude_4x0.attempt001.conditions.csv",
+      "conditions_sha256": "0b9c4bab9ef0d018cd09548b3dd71e94d33b3d195d1ce13088c05de711437c0c",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\036_E067_gemini-deepseek-claude_4x0.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\036_E067_gemini-deepseek-claude_4x0.attempt001.raw.csv",
+      "raw_sha256": "3160e45fd235b53d55e35ae1802dedfe28bfc8d08da497bdf04cf5d2862e797e"
+    },
+    {
+      "chunk": "037_E067_gemini-deepseek-claude_3x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\037_E067_gemini-deepseek-claude_3x1.attempt001.conditions.csv",
+      "conditions_sha256": "91a8e805c293a07434502ad6520f5657305c19dc695e16bcf1ccbb62359ce579",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\037_E067_gemini-deepseek-claude_3x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\037_E067_gemini-deepseek-claude_3x1.attempt001.raw.csv",
+      "raw_sha256": "2811a102f43fd3ee3688016eb4bad19f2f9d64243e2e082867a83d63c7153f3e"
+    },
+    {
+      "chunk": "038_E067_gemini-deepseek-claude_2x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\038_E067_gemini-deepseek-claude_2x2.attempt001.conditions.csv",
+      "conditions_sha256": "b613d414b16cb2db22db825052d13500235096ebec368fdc37c0376ed6293e16",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\038_E067_gemini-deepseek-claude_2x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\038_E067_gemini-deepseek-claude_2x2.attempt001.raw.csv",
+      "raw_sha256": "3199dc205408bf54d080af2edaedc1b55bfbaf7c18b8cf12cbdff1fc238e1ac8"
+    },
+    {
+      "chunk": "039_E067_gemini-deepseek-claude_4x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\039_E067_gemini-deepseek-claude_4x1.attempt001.conditions.csv",
+      "conditions_sha256": "cd789c1b80e47183ad6ff51695bceff792ce22f269442b6fe411bd38c12e3027",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\039_E067_gemini-deepseek-claude_4x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\039_E067_gemini-deepseek-claude_4x1.attempt001.raw.csv",
+      "raw_sha256": "b93d93cb27447304248017b29049c60275aad86bddc880dd4e16bd6787aa9482"
+    },
+    {
+      "chunk": "040_E067_gemini-deepseek-claude_2x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\040_E067_gemini-deepseek-claude_2x1.attempt001.conditions.csv",
+      "conditions_sha256": "8b20df427d6281a6600c162915380718cfa6b6b029d2792ea18fdfdc3fdea869",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\040_E067_gemini-deepseek-claude_2x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\040_E067_gemini-deepseek-claude_2x1.attempt001.raw.csv",
+      "raw_sha256": "2d7cac9c281946a851a706387de417ef0c27f7973790998992ecb6be14957ca7"
+    },
+    {
+      "chunk": "041_E067_gemini-deepseek-claude_3x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\041_E067_gemini-deepseek-claude_3x2.attempt002.conditions.csv",
+      "conditions_sha256": "f36d1f35712c483fd89253510dd56821bf3694495b309ef37dbb8c4304a8a63e",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\041_E067_gemini-deepseek-claude_3x2.attempt002.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\041_E067_gemini-deepseek-claude_3x2.attempt002.raw.csv",
+      "raw_sha256": "0427cceec6fdf9aa9c2b38ccb762d92dc8e5a03d57c353fc0f3e2c2590974405"
+    },
+    {
+      "chunk": "042_E068_gemini-deepseek-claude_4x0",
+      "conditions_path": "results\\salvage_standard_work\\live\\042_E068_gemini-deepseek-claude_4x0.attempt001.conditions.csv",
+      "conditions_sha256": "10601bd04a08442fdc70e575348bca565d6f87e88700ef4b84298b901d3ed2ca",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\042_E068_gemini-deepseek-claude_4x0.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\042_E068_gemini-deepseek-claude_4x0.attempt001.raw.csv",
+      "raw_sha256": "ecc9e3687d3ae5d1503f6aaa62a8f271095a2144ac720b5a408e2775fced596f"
+    },
+    {
+      "chunk": "043_E068_gemini-deepseek-claude_3x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\043_E068_gemini-deepseek-claude_3x1.attempt001.conditions.csv",
+      "conditions_sha256": "08445a29da645872d3068077be7e04cfb74ed3418547e2289c0c9e7da8a0f6bf",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\043_E068_gemini-deepseek-claude_3x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\043_E068_gemini-deepseek-claude_3x1.attempt001.raw.csv",
+      "raw_sha256": "2589acd00d8852d03885a2ca37d7da7ac19853424717dd498794d9dbb81a5fe0"
+    },
+    {
+      "chunk": "044_E068_gemini-deepseek-claude_2x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\044_E068_gemini-deepseek-claude_2x2.attempt001.conditions.csv",
+      "conditions_sha256": "0f822e6418d5bf21849016c8d410c38ae17c93ed79558a5dfe9b6abea442dae9",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\044_E068_gemini-deepseek-claude_2x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\044_E068_gemini-deepseek-claude_2x2.attempt001.raw.csv",
+      "raw_sha256": "c0ebd73b0f283b1ccf97fd6fdf5a385d26bc28c4e79f57948b2af77f1a55e637"
+    },
+    {
+      "chunk": "045_E068_gemini-deepseek-claude_4x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\045_E068_gemini-deepseek-claude_4x1.attempt001.conditions.csv",
+      "conditions_sha256": "0af4e1a8b9c6ecfd2917b64a8878a12ec85776c9f6ca2ee5bb4a169273a185e0",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\045_E068_gemini-deepseek-claude_4x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\045_E068_gemini-deepseek-claude_4x1.attempt001.raw.csv",
+      "raw_sha256": "b90ff33db1f0058b7598fef98d4f2cdfcc7a9bc1da1c0fdf294748c8c1431350"
+    },
+    {
+      "chunk": "046_E068_gemini-deepseek-claude_2x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\046_E068_gemini-deepseek-claude_2x1.attempt001.conditions.csv",
+      "conditions_sha256": "d242e8f388e52de986ea60e66e3ce422a57fe00ecb5a07bd945c50b4c52b5ad9",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\046_E068_gemini-deepseek-claude_2x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\046_E068_gemini-deepseek-claude_2x1.attempt001.raw.csv",
+      "raw_sha256": "3c6d7f6da111568a9e2138739d376ea0ad48a26077aee4e9bff009f537408f41"
+    },
+    {
+      "chunk": "047_E068_gemini-deepseek-claude_3x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\047_E068_gemini-deepseek-claude_3x2.attempt001.conditions.csv",
+      "conditions_sha256": "dc6599e9f9541838802443e12047d6e53f88fb59a8b954e9d5abd77f0b9a83d6",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\047_E068_gemini-deepseek-claude_3x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\047_E068_gemini-deepseek-claude_3x2.attempt001.raw.csv",
+      "raw_sha256": "0f0bdcb112c1eef7bc73edd151f4d63d110b96b85352c9cf3cfc982238cade0e"
+    },
+    {
+      "chunk": "048_E069_gemini-deepseek-claude_4x0",
+      "conditions_path": "results\\salvage_standard_work\\live\\048_E069_gemini-deepseek-claude_4x0.attempt001.conditions.csv",
+      "conditions_sha256": "81afdd04f0c9eb91d24cc7648546718e9a594f1fb06241c29afd70cc5c1e4648",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\048_E069_gemini-deepseek-claude_4x0.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\048_E069_gemini-deepseek-claude_4x0.attempt001.raw.csv",
+      "raw_sha256": "40b715c35e470da8eaf3223da1d8dbee7c71a52c63e8697d69c87b9b0699ad21"
+    },
+    {
+      "chunk": "049_E069_gemini-deepseek-claude_3x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\049_E069_gemini-deepseek-claude_3x1.attempt001.conditions.csv",
+      "conditions_sha256": "8b61487a66a7fdafccee5daa7a7c6460fd5acc8508683936a2ba269d6c5d2d96",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\049_E069_gemini-deepseek-claude_3x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\049_E069_gemini-deepseek-claude_3x1.attempt001.raw.csv",
+      "raw_sha256": "385a504d5a46bdc427ed2540a33f42210d5140a728b01c25f1efd62660faecb2"
+    },
+    {
+      "chunk": "050_E069_gemini-deepseek-claude_2x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\050_E069_gemini-deepseek-claude_2x2.attempt001.conditions.csv",
+      "conditions_sha256": "1a6bc9cd8d6a4b6492027f5be94f870f93bc5b01e6f1408b2b7c5ef49891dc47",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\050_E069_gemini-deepseek-claude_2x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\050_E069_gemini-deepseek-claude_2x2.attempt001.raw.csv",
+      "raw_sha256": "05498435765d861629aee17d7bd5660855f33b257739c2805b938dd496ba4dd7"
+    },
+    {
+      "chunk": "051_E069_gemini-deepseek-claude_4x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\051_E069_gemini-deepseek-claude_4x1.attempt001.conditions.csv",
+      "conditions_sha256": "052eeb4b25dca7e8e1e1c5eaa6fd5ec65231daca01272c52b7585e9a74e95a7f",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\051_E069_gemini-deepseek-claude_4x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\051_E069_gemini-deepseek-claude_4x1.attempt001.raw.csv",
+      "raw_sha256": "6dd40e7fc58329781e74c592f41d56d7107aefa64b5b0259c9e09a3266d2e05e"
+    },
+    {
+      "chunk": "052_E069_gemini-deepseek-claude_2x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\052_E069_gemini-deepseek-claude_2x1.attempt001.conditions.csv",
+      "conditions_sha256": "855cdc7457e1ca24396780dec0d7b6d030c30cc28eb7f35766c381bfa7d83773",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\052_E069_gemini-deepseek-claude_2x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\052_E069_gemini-deepseek-claude_2x1.attempt001.raw.csv",
+      "raw_sha256": "c5a670581b1a3c8cfba28e5b53a0633149ecf04ca065078057e033a5a6769d48"
+    },
+    {
+      "chunk": "053_E069_gemini-deepseek-claude_3x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\053_E069_gemini-deepseek-claude_3x2.attempt001.conditions.csv",
+      "conditions_sha256": "606a75e1071150bc954d74f21bbfa9f0c7592259aca2d23cd8977aca81b18ebe",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\053_E069_gemini-deepseek-claude_3x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\053_E069_gemini-deepseek-claude_3x2.attempt001.raw.csv",
+      "raw_sha256": "4233ddba692f01c55552084637f319e9f9bb07c19c3327268b6114aa762ae6d3"
+    },
+    {
+      "chunk": "054_E070_gemini-deepseek-claude_4x0",
+      "conditions_path": "results\\salvage_standard_work\\live\\054_E070_gemini-deepseek-claude_4x0.attempt001.conditions.csv",
+      "conditions_sha256": "a6b35f325741d214ed35f1a70f78c52ed51721ae9d1959deeaa394d79934d1b0",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\054_E070_gemini-deepseek-claude_4x0.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\054_E070_gemini-deepseek-claude_4x0.attempt001.raw.csv",
+      "raw_sha256": "5447055aaa674466dd9edf0d3afa034cf1e40a166b728804bfcdcbe777d5146c"
+    },
+    {
+      "chunk": "055_E070_gemini-deepseek-claude_3x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\055_E070_gemini-deepseek-claude_3x1.attempt001.conditions.csv",
+      "conditions_sha256": "de22330a36199ea1f3c787db36e08c4fb0300c71107d7ebfbc97535beadc6cae",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\055_E070_gemini-deepseek-claude_3x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\055_E070_gemini-deepseek-claude_3x1.attempt001.raw.csv",
+      "raw_sha256": "843c92416fdae974d960294d9456e7613214f07484c7f812108167fde405409e"
+    },
+    {
+      "chunk": "056_E070_gemini-deepseek-claude_2x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\056_E070_gemini-deepseek-claude_2x2.attempt001.conditions.csv",
+      "conditions_sha256": "b91b6e836d787c7997050cff32e0ee448c6a87bc94bbabb7da95373d57deccb1",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\056_E070_gemini-deepseek-claude_2x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\056_E070_gemini-deepseek-claude_2x2.attempt001.raw.csv",
+      "raw_sha256": "e42aa68075c3211429d0dab2449aa036527f1b644686f0a3069988bd60305cff"
+    },
+    {
+      "chunk": "057_E070_gemini-deepseek-claude_4x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\057_E070_gemini-deepseek-claude_4x1.attempt001.conditions.csv",
+      "conditions_sha256": "708d9f62fa110f70e394d2e7090c52d4da36c27702f81d2c3263c62220d4fbfc",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\057_E070_gemini-deepseek-claude_4x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\057_E070_gemini-deepseek-claude_4x1.attempt001.raw.csv",
+      "raw_sha256": "be24efcddf29a21929a9aa06fcfe6071ea985251832736ed5681c30a75e8fbc5"
+    },
+    {
+      "chunk": "058_E070_gemini-deepseek-claude_2x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\058_E070_gemini-deepseek-claude_2x1.attempt001.conditions.csv",
+      "conditions_sha256": "d07ff841afd174b02f51333918068a7e5cd1cfbd6d20b60b319b8e5a5e5cda24",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\058_E070_gemini-deepseek-claude_2x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\058_E070_gemini-deepseek-claude_2x1.attempt001.raw.csv",
+      "raw_sha256": "75737bc27a16a448211676b2d33c5287cedeff238196b59c6e41638ae50f7ecf"
+    },
+    {
+      "chunk": "059_E070_gemini-deepseek-claude_3x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\059_E070_gemini-deepseek-claude_3x2.attempt001.conditions.csv",
+      "conditions_sha256": "cf933c570856200eaed896c70be24ecbf1a7a40eeb586cac1e4cb0be04399ede",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\059_E070_gemini-deepseek-claude_3x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\059_E070_gemini-deepseek-claude_3x2.attempt001.raw.csv",
+      "raw_sha256": "0a3c8cff4e12480d2619bf6fc9ef74bee4a845f1fb36e1589744acc2858160c3"
+    },
+    {
+      "chunk": "060_E071_gemini-deepseek-claude_4x0",
+      "conditions_path": "results\\salvage_standard_work\\live\\060_E071_gemini-deepseek-claude_4x0.attempt001.conditions.csv",
+      "conditions_sha256": "0c8553658cccd74780c0620c767f07dc628f93b2f6d8dbdb9fdd3ad8c9c685da",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\060_E071_gemini-deepseek-claude_4x0.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\060_E071_gemini-deepseek-claude_4x0.attempt001.raw.csv",
+      "raw_sha256": "d6fbcba8154edcdc9ade40f360fedb2b00b02400aa953b7b51a2e5214603b450"
+    },
+    {
+      "chunk": "061_E071_gemini-deepseek-claude_3x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\061_E071_gemini-deepseek-claude_3x1.attempt001.conditions.csv",
+      "conditions_sha256": "4a02f9e06a975838d3e9b6503c2baf7dd7535d1dd022c75a57c7c0a0ff6674a8",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\061_E071_gemini-deepseek-claude_3x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\061_E071_gemini-deepseek-claude_3x1.attempt001.raw.csv",
+      "raw_sha256": "67e9aaa20b0b3038c7691aa713d49fe40a7c9aa55cd1df899928c04e66c3b32f"
+    },
+    {
+      "chunk": "062_E071_gemini-deepseek-claude_2x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\062_E071_gemini-deepseek-claude_2x2.attempt001.conditions.csv",
+      "conditions_sha256": "d74761f1f4a5174cbebdec15b475e37c01f1d275ce3291b571b2e9d915edb207",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\062_E071_gemini-deepseek-claude_2x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\062_E071_gemini-deepseek-claude_2x2.attempt001.raw.csv",
+      "raw_sha256": "e0083e7e8a575134c4da5c841e4b12917faeac6effdbc99be3b02d677828a31d"
+    },
+    {
+      "chunk": "063_E071_gemini-deepseek-claude_4x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\063_E071_gemini-deepseek-claude_4x1.attempt001.conditions.csv",
+      "conditions_sha256": "c45253bfcfc73745042a44ba18c0d3904a29f975b2df52ac63127c457a82a2c4",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\063_E071_gemini-deepseek-claude_4x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\063_E071_gemini-deepseek-claude_4x1.attempt001.raw.csv",
+      "raw_sha256": "8bd18ed61a47f1deffd7ee10cc2f3f9a164d5624891eeb1fb27eb38f14b9a701"
+    },
+    {
+      "chunk": "064_E071_gemini-deepseek-claude_2x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\064_E071_gemini-deepseek-claude_2x1.attempt001.conditions.csv",
+      "conditions_sha256": "99b758ee44b3ca867bf9da4514838766c45bdf7229208e07f445af8359d33be2",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\064_E071_gemini-deepseek-claude_2x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\064_E071_gemini-deepseek-claude_2x1.attempt001.raw.csv",
+      "raw_sha256": "9712b1f749998767916428198b373a78d02fb03ace937aa49b39810372f33b1f"
+    },
+    {
+      "chunk": "065_E071_gemini-deepseek-claude_3x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\065_E071_gemini-deepseek-claude_3x2.attempt001.conditions.csv",
+      "conditions_sha256": "b3b4f9774deb77de91cfd29084d089f4ecb08b64bbac1724acfeab73e43725ed",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\065_E071_gemini-deepseek-claude_3x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\065_E071_gemini-deepseek-claude_3x2.attempt001.raw.csv",
+      "raw_sha256": "4fbc215b4a89072011340f712d84a902f35c01f9880dc5cb7891c16c87690245"
+    },
+    {
+      "chunk": "066_E072_gemini-deepseek-claude_4x0",
+      "conditions_path": "results\\salvage_standard_work\\live\\066_E072_gemini-deepseek-claude_4x0.attempt001.conditions.csv",
+      "conditions_sha256": "6f9601b44bb6f0a1ffec2b60bd8b14fe08324239d6f40584e53f61ee6062f0be",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\066_E072_gemini-deepseek-claude_4x0.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\066_E072_gemini-deepseek-claude_4x0.attempt001.raw.csv",
+      "raw_sha256": "b2116f35028ac98398b73105e1d4b224e7f8c53ec22fc1fb47f4626c730b9f6a"
+    },
+    {
+      "chunk": "067_E072_gemini-deepseek-claude_3x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\067_E072_gemini-deepseek-claude_3x1.attempt001.conditions.csv",
+      "conditions_sha256": "045e278dabe97cd299ea067841c0ebeeea4554e10129157a870510e141bc5bf0",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\067_E072_gemini-deepseek-claude_3x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\067_E072_gemini-deepseek-claude_3x1.attempt001.raw.csv",
+      "raw_sha256": "9be06f4e46b322b3c7b1590a8496c70ac0e0adcacb26e71f6ec33eb5ee0b7280"
+    },
+    {
+      "chunk": "068_E072_gemini-deepseek-claude_2x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\068_E072_gemini-deepseek-claude_2x2.attempt001.conditions.csv",
+      "conditions_sha256": "e03bcb8e439b151c46b31e27c697b4b6f0de728e3522e30f7ea89456ee01004b",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\068_E072_gemini-deepseek-claude_2x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\068_E072_gemini-deepseek-claude_2x2.attempt001.raw.csv",
+      "raw_sha256": "0bdf30bcb9bf37601c8b941d621ce9d6bb5773086faee390a52a33048f96f324"
+    },
+    {
+      "chunk": "069_E072_gemini-deepseek-claude_4x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\069_E072_gemini-deepseek-claude_4x1.attempt001.conditions.csv",
+      "conditions_sha256": "614bb87f4ce9e99a3e28f80bc91846ce30257510e2a504cc4a2ec1dadad9c007",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\069_E072_gemini-deepseek-claude_4x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\069_E072_gemini-deepseek-claude_4x1.attempt001.raw.csv",
+      "raw_sha256": "da05eeac2e51679f70302c90a3aa88330f52db9b4aefbfc8f10478bbe49b4f31"
+    },
+    {
+      "chunk": "070_E072_gemini-deepseek-claude_2x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\070_E072_gemini-deepseek-claude_2x1.attempt001.conditions.csv",
+      "conditions_sha256": "9b1fd77630571db965c9d8aa3f99eedebdc8edd0b7cd8f1c32ff647b86f336a1",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\070_E072_gemini-deepseek-claude_2x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\070_E072_gemini-deepseek-claude_2x1.attempt001.raw.csv",
+      "raw_sha256": "84b9ce6845d2a994903fcf5cf618a3484410cbabfd0fdaa8a09306ee50662375"
+    },
+    {
+      "chunk": "071_E072_gemini-deepseek-claude_3x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\071_E072_gemini-deepseek-claude_3x2.attempt001.conditions.csv",
+      "conditions_sha256": "c04ecf1d9095afd9e0388cb55e6b3fb847bdb3205313643053105006f25f6b87",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\071_E072_gemini-deepseek-claude_3x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\071_E072_gemini-deepseek-claude_3x2.attempt001.raw.csv",
+      "raw_sha256": "c22c1f313ef4fe81d66aa1531689b907a74b15ce3b9a4c53a0099ee98823841e"
+    },
+    {
+      "chunk": "072_E073_gemini-deepseek-claude_4x0",
+      "conditions_path": "results\\salvage_standard_work\\live\\072_E073_gemini-deepseek-claude_4x0.attempt001.conditions.csv",
+      "conditions_sha256": "fc25dc839f09177cb2c0da5fa1709dd10193936e336ea9c8f41c08346e0aae7a",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\072_E073_gemini-deepseek-claude_4x0.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\072_E073_gemini-deepseek-claude_4x0.attempt001.raw.csv",
+      "raw_sha256": "62c55df639bede0014b0fd5f15be471a2e6c1b6769c1ede2a26e12326130f077"
+    },
+    {
+      "chunk": "073_E073_gemini-deepseek-claude_3x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\073_E073_gemini-deepseek-claude_3x1.attempt001.conditions.csv",
+      "conditions_sha256": "d81b37acd68734ba88449d1c476252e32506c5824c67822451dcb56594dba22a",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\073_E073_gemini-deepseek-claude_3x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\073_E073_gemini-deepseek-claude_3x1.attempt001.raw.csv",
+      "raw_sha256": "c2418e2f3f77f3ce87d5af58e1fb9d2733ef4aba0f3d8cb4c71222c19366fdc7"
+    },
+    {
+      "chunk": "074_E073_gemini-deepseek-claude_2x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\074_E073_gemini-deepseek-claude_2x2.attempt001.conditions.csv",
+      "conditions_sha256": "ad8ef56fac6bb48ef87fc0be9f3323bcb0fe1cf711c064c84c078663b249a06c",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\074_E073_gemini-deepseek-claude_2x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\074_E073_gemini-deepseek-claude_2x2.attempt001.raw.csv",
+      "raw_sha256": "679d47126b3579adfa4d4e7b509e3188c4cacde198b39025575a8effef741c1c"
+    },
+    {
+      "chunk": "075_E073_gemini-deepseek-claude_4x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\075_E073_gemini-deepseek-claude_4x1.attempt001.conditions.csv",
+      "conditions_sha256": "79e0bf68079f9995b731bfa43c0a0197e73f43373464933e5400d2fc5dd53c8a",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\075_E073_gemini-deepseek-claude_4x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\075_E073_gemini-deepseek-claude_4x1.attempt001.raw.csv",
+      "raw_sha256": "f31133eb273fc775b1aadc0670e5faf5fe82ee90b87be21100d57e30961dde4b"
+    },
+    {
+      "chunk": "076_E073_gemini-deepseek-claude_2x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\076_E073_gemini-deepseek-claude_2x1.attempt001.conditions.csv",
+      "conditions_sha256": "4e27a375389b525460ef164384acae93ec70dafd07010f54ebb83ada013c42eb",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\076_E073_gemini-deepseek-claude_2x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\076_E073_gemini-deepseek-claude_2x1.attempt001.raw.csv",
+      "raw_sha256": "b5244e6577ce15abcba388b4d5242c093fe38ee7f2b703c38855b299bb01b117"
+    },
+    {
+      "chunk": "077_E073_gemini-deepseek-claude_3x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\077_E073_gemini-deepseek-claude_3x2.attempt001.conditions.csv",
+      "conditions_sha256": "042abd8fefc89859adf1aa41e55f09b637e2e4119fe87daf53a7c11c228bfb70",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\077_E073_gemini-deepseek-claude_3x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\077_E073_gemini-deepseek-claude_3x2.attempt001.raw.csv",
+      "raw_sha256": "2b40e0911dc245596fa76fb9b8d23a2ae590afadf0abc9b6e0a1bc8a11881262"
+    },
+    {
+      "chunk": "078_E074_gemini-deepseek-claude_4x0",
+      "conditions_path": "results\\salvage_standard_work\\live\\078_E074_gemini-deepseek-claude_4x0.attempt001.conditions.csv",
+      "conditions_sha256": "a7dde8d299b62afce3b567045ec3f6d9d410f923a78ec77461f1d4745ad0116c",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\078_E074_gemini-deepseek-claude_4x0.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\078_E074_gemini-deepseek-claude_4x0.attempt001.raw.csv",
+      "raw_sha256": "f5f42e75132f5ee65da2a89b133c359503bc4ed9af17ad09e5f6ba0a85ada1f8"
+    },
+    {
+      "chunk": "079_E074_gemini-deepseek-claude_3x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\079_E074_gemini-deepseek-claude_3x1.attempt001.conditions.csv",
+      "conditions_sha256": "c545fa837924196ff41340ec77e37bb0c1ed993e3d490a7a02e8c19a3972949c",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\079_E074_gemini-deepseek-claude_3x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\079_E074_gemini-deepseek-claude_3x1.attempt001.raw.csv",
+      "raw_sha256": "aced8c66dc29e25c3869ed06a2d4c6f66536c747fc8a7b1a6045c047f34b3482"
+    },
+    {
+      "chunk": "080_E074_gemini-deepseek-claude_2x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\080_E074_gemini-deepseek-claude_2x2.attempt001.conditions.csv",
+      "conditions_sha256": "0bb351bc55b41e677d71ab034c6bff7ec0552730348379889c77606b58fc77c6",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\080_E074_gemini-deepseek-claude_2x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\080_E074_gemini-deepseek-claude_2x2.attempt001.raw.csv",
+      "raw_sha256": "cb6f2f7064cdcfd32673f21502343e3d3d25079dd96c5317ce196bf102fb42ea"
+    },
+    {
+      "chunk": "081_E074_gemini-deepseek-claude_4x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\081_E074_gemini-deepseek-claude_4x1.attempt001.conditions.csv",
+      "conditions_sha256": "380e06cc804fa261452283f7a9ccf383f6afd76892a09df9f5a301d36e4041c8",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\081_E074_gemini-deepseek-claude_4x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\081_E074_gemini-deepseek-claude_4x1.attempt001.raw.csv",
+      "raw_sha256": "56a2da22ca39b4b75977e14985bfb0bdeb2cb54bb14b4c1d7d0d8db9b49246bf"
+    },
+    {
+      "chunk": "082_E074_gemini-deepseek-claude_2x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\082_E074_gemini-deepseek-claude_2x1.attempt001.conditions.csv",
+      "conditions_sha256": "720256903d49d85d736f9495ab30f40c9496a16e9625b9952d1a8d1ac52dde21",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\082_E074_gemini-deepseek-claude_2x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\082_E074_gemini-deepseek-claude_2x1.attempt001.raw.csv",
+      "raw_sha256": "da7a1bc5e7c54dbe918f5d54fbf7811e731644ec0ebdf98585502f2f962279a2"
+    },
+    {
+      "chunk": "083_E074_gemini-deepseek-claude_3x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\083_E074_gemini-deepseek-claude_3x2.attempt001.conditions.csv",
+      "conditions_sha256": "da6683127b3ae033bc8325200dda4663f4091ee738b56968abaf092b3ca14e72",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\083_E074_gemini-deepseek-claude_3x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\083_E074_gemini-deepseek-claude_3x2.attempt001.raw.csv",
+      "raw_sha256": "ba2b9fb9e86b78d96e4b6d5fc84ca482f7ce78f54289dab9e2871d42771cdec2"
+    },
+    {
+      "chunk": "084_E075_gemini-deepseek-claude_4x0",
+      "conditions_path": "results\\salvage_standard_work\\live\\084_E075_gemini-deepseek-claude_4x0.attempt001.conditions.csv",
+      "conditions_sha256": "70b0247fd42ec566af332291d23a76c1052599a7122cbf2c72df2eb414773a59",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\084_E075_gemini-deepseek-claude_4x0.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\084_E075_gemini-deepseek-claude_4x0.attempt001.raw.csv",
+      "raw_sha256": "fb82ba7ca4a74cc383d2893e52d12c276422bb45901b8c3c2971a62d55963808"
+    },
+    {
+      "chunk": "085_E075_gemini-deepseek-claude_3x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\085_E075_gemini-deepseek-claude_3x1.attempt001.conditions.csv",
+      "conditions_sha256": "7f0a7c5f43d14abd8196adad6c10d385d0df72532d6b3918bf5362e5bca97d27",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\085_E075_gemini-deepseek-claude_3x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\085_E075_gemini-deepseek-claude_3x1.attempt001.raw.csv",
+      "raw_sha256": "c948e671af188ae1caadfffd5539bd72b00d97c8221678191c95aa0873b355de"
+    },
+    {
+      "chunk": "086_E075_gemini-deepseek-claude_2x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\086_E075_gemini-deepseek-claude_2x2.attempt001.conditions.csv",
+      "conditions_sha256": "2b61d852bcfd97eec4c62093a3780054e0286d6abba81acc8725287ceaaa40c0",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\086_E075_gemini-deepseek-claude_2x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\086_E075_gemini-deepseek-claude_2x2.attempt001.raw.csv",
+      "raw_sha256": "497664a778bd7daded7f9ebdc58eb7a616c75b24f60b9a1d58a72aec7649e85d"
+    },
+    {
+      "chunk": "087_E075_gemini-deepseek-claude_4x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\087_E075_gemini-deepseek-claude_4x1.attempt001.conditions.csv",
+      "conditions_sha256": "f64036f82bb39cebaabea3cbe30de1c3653f6fd5e370b90745992b0ea95d2254",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\087_E075_gemini-deepseek-claude_4x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\087_E075_gemini-deepseek-claude_4x1.attempt001.raw.csv",
+      "raw_sha256": "090549b8f11d55588ce9c81b750c796be6b29e733d94497a8e0a4a977190ef51"
+    },
+    {
+      "chunk": "088_E075_gemini-deepseek-claude_2x1",
+      "conditions_path": "results\\salvage_standard_work\\live\\088_E075_gemini-deepseek-claude_2x1.attempt001.conditions.csv",
+      "conditions_sha256": "698e433d527cb1b20243a17af08a1aa29f5c6e49927d009219bc7a8e1e3fdeb1",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\088_E075_gemini-deepseek-claude_2x1.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\088_E075_gemini-deepseek-claude_2x1.attempt001.raw.csv",
+      "raw_sha256": "91ed7bf6adc330c8e5fd0aab2a55ff5eb6c2c8ebf1285304772a7010244681a8"
+    },
+    {
+      "chunk": "089_E075_gemini-deepseek-claude_3x2",
+      "conditions_path": "results\\salvage_standard_work\\live\\089_E075_gemini-deepseek-claude_3x2.attempt001.conditions.csv",
+      "conditions_sha256": "d70b25a7bbc53139b4a61e1c4a5eaa42654a3ff039368180ae045318da75459a",
+      "keys": 3,
+      "meta_path": "results\\salvage_standard_work\\live\\089_E075_gemini-deepseek-claude_3x2.attempt001.meta.json",
+      "raw_path": "results\\salvage_standard_work\\live\\089_E075_gemini-deepseek-claude_3x2.attempt001.raw.csv",
+      "raw_sha256": "d2a9b245ccf11cbb1617ce5e284aa58088bf14f6473de84038940280a2ed53b9"
+    }
+  ],
+  "collection_segments": [
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E071"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "00cd3a32",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E075"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "035de083",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E070"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "09791f7a",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E072"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:0"
+      ],
+      "raw_row_count": 12,
+      "run_id": "0cfee62b",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E073"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "10aaaefb",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E075"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "10e42f9d",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E062"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "11bc136e",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E064"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "13d3de0a",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E069"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "13f0ff69",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E067"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:0"
+      ],
+      "raw_row_count": 12,
+      "run_id": "14c64622",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E065"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "1597a275",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E068"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "17874e26",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E073"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:2"
+      ],
+      "raw_row_count": 11,
+      "run_id": "183103c0",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E071"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "1e207e55",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E065"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "1e67dda0",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E074"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "1eb149f2",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E073"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "1f762db2",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E065"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "22de4bbf",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E072"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "2305d612",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E063"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:0"
+      ],
+      "raw_row_count": 12,
+      "run_id": "2ad8c05b",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E070"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:0"
+      ],
+      "raw_row_count": 12,
+      "run_id": "2e38ada1",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E061"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "326e7fb4",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E068"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:0"
+      ],
+      "raw_row_count": 12,
+      "run_id": "33f2e142",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E063"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "34d8b11b",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E064"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:0"
+      ],
+      "raw_row_count": 12,
+      "run_id": "38c01748",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E075"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "3e3b0e01",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E074"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:0"
+      ],
+      "raw_row_count": 12,
+      "run_id": "404d4285",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E066"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:0"
+      ],
+      "raw_row_count": 12,
+      "run_id": "4277adb4",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E064"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "49d3d292",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E074"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "4cb1c6d4",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E075"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:0"
+      ],
+      "raw_row_count": 12,
+      "run_id": "4f7a8c9d",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E066"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "55730a4e",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E070"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "6538c6fe",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E065"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "675f855a",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E070"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "69b18f4d",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E065"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:0"
+      ],
+      "raw_row_count": 12,
+      "run_id": "6a2ca3de",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E067"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "6c8dafe5",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E063"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "6dffb177",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E061"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "7132ba3c",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E064"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "7556b5ac",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E069"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "7679d87a",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E069"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:0"
+      ],
+      "raw_row_count": 12,
+      "run_id": "803490ee",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E063"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "81e6eba5",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E063"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "835a1d7e",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E068"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "863c29db",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E068"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "88ea337f",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E062"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "8932321c",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E068"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "8a09cb51",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E067"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "8b5c6ddf",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E062"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:0"
+      ],
+      "raw_row_count": 12,
+      "run_id": "907e54e6",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E072"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "914c8be6",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E073"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "95f2eaed",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E062"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "9601b74e",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E066"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:2"
+      ],
+      "raw_row_count": 11,
+      "run_id": "9712581d",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E071"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:2"
+      ],
+      "raw_row_count": 13,
+      "run_id": "9818fbb6",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E067"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "9c1aa010",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E065"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "a3a5442a",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E067"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "a98363dd",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E069"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "a9a448c9",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E071"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "aa6aae6e",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E071"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "abed452a",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E072"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "ae978522",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E061"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "afdfbf09",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E062"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "b3dbcb82",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E062"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "b8cb600a",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 1085,
+      "entity_ids": [
+        "E001",
+        "E002",
+        "E003",
+        "E004",
+        "E005",
+        "E006",
+        "E007",
+        "E008",
+        "E009",
+        "E010",
+        "E011",
+        "E012",
+        "E013",
+        "E014",
+        "E015",
+        "E016",
+        "E017",
+        "E018",
+        "E019",
+        "E020",
+        "E021",
+        "E022",
+        "E023",
+        "E024",
+        "E025",
+        "E026",
+        "E027",
+        "E028",
+        "E029",
+        "E030",
+        "E031",
+        "E032",
+        "E033",
+        "E034",
+        "E035",
+        "E036",
+        "E037",
+        "E038",
+        "E039",
+        "E040",
+        "E041",
+        "E042",
+        "E043",
+        "E044",
+        "E045",
+        "E046",
+        "E047",
+        "E048",
+        "E049",
+        "E050",
+        "E051",
+        "E052",
+        "E053",
+        "E054",
+        "E055",
+        "E056",
+        "E057",
+        "E058",
+        "E059",
+        "E060",
+        "E061"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:0",
+        "3:1",
+        "2:2",
+        "4:1",
+        "2:1",
+        "3:2"
+      ],
+      "raw_row_count": 4348,
+      "run_id": "ba5527fe",
+      "terminal_primary_count": 3255
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E073"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "ba897e10",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E074"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "c292f1a3",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E073"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:0"
+      ],
+      "raw_row_count": 12,
+      "run_id": "c2c0a139",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E066"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "c3b2867c",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E075"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "c6253c98",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E070"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "c62e48bb",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E072"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "c96a681c",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E071"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:0"
+      ],
+      "raw_row_count": 12,
+      "run_id": "cc066a63",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E075"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "d2b5ffcc",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E074"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "d3795b41",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E070"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "d5fd4a89",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E064"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "d7237067",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E066"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "d8cbbbd9",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 1,
+      "entity_ids": [
+        "E021"
+      ],
+      "model_slots": [
+        "deepseek"
+      ],
+      "ratios": [
+        "2:2"
+      ],
+      "raw_row_count": 6,
+      "run_id": "db29a597",
+      "terminal_primary_count": 3
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E074"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "dd82ac93",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E069"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "e23ae815",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E069"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:2"
+      ],
+      "raw_row_count": 10,
+      "run_id": "ee40f69b",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E068"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "ee96e9fb",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E061"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "f3216564",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E064"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "f66e1482",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E072"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "f90b63a4",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E063"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "3:2"
+      ],
+      "raw_row_count": 12,
+      "run_id": "fd05b9b4",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E066"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "2:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "fe6a45f6",
+      "terminal_primary_count": 9
+    },
+    {
+      "condition_count": 3,
+      "entity_ids": [
+        "E067"
+      ],
+      "model_slots": [
+        "gemini",
+        "deepseek",
+        "claude"
+      ],
+      "ratios": [
+        "4:1"
+      ],
+      "raw_row_count": 12,
+      "run_id": "fff38981",
+      "terminal_primary_count": 9
+    }
+  ],
+  "created_utc": "2026-07-18T05:37:28.965863+00:00",
+  "dataset_sha256": "ae988cca2df68905dab713c2b536c3e821146a40bdff9926d1a5d59f09c22073",
+  "derived_rescore_corrections": [
+    {
+      "key": "E059/2:2/gemini",
+      "preserved_modal_answer": "indeterminate",
+      "preserved_posthoc": true,
+      "raw_trial_corrections": [
+        {
+          "after": {
+            "abstained": "1",
+            "mentions_conflict": "0",
+            "response_category": "FLAG"
+          },
+          "before": {
+            "abstained": "0",
+            "mentions_conflict": "0",
+            "response_category": "OTHER"
+          },
+          "trial_index": "1"
+        }
+      ]
+    }
+  ],
+  "design": {
+    "dataset_sha256": "ae988cca2df68905dab713c2b536c3e821146a40bdff9926d1a5d59f09c22073",
+    "format_retries": 2,
+    "generation_contract": {
+      "gemini_generic_400_extra_retries": 2,
+      "gemini_max_output_tokens": 2048,
+      "gemini_max_total_attempts": 4,
+      "gemini_thinking_level": "MEDIUM",
+      "openrouter_anthropic_budget_tokens": 2048,
+      "openrouter_claude_max_tokens": 4096,
+      "openrouter_default_effort": "high",
+      "openrouter_default_max_tokens": 2048,
+      "openrouter_sdk_retries": 4,
+      "posthoc_system_prompt_sha256": "52bb65ac103a336aabd4873b63ac988641a6c9e33655ff1f2d9688f125f6c11f",
+      "route": {
+        "location": "global",
+        "mode": "vertex_project_auth",
+        "openrouter_key_configured": true,
+        "project_configured": true,
+        "service_account_file_exists": true
+      },
+      "run_experiment_sha256": "2d530d70db2c965e5805b7fe8b3d3f7a9e7f3cb738fdcf7fcd5c1277f585d2d9",
+      "system_prompt_sha256": "19e04d60b2f02bc1fead57b14b83e91e30f51b4b8173b987949e399f431433b6"
+    },
+    "layout_index": 1,
+    "mock": false,
+    "models": {
+      "claude": "anthropic/claude-haiku-4.5",
+      "deepseek": "deepseek/deepseek-v4-flash",
+      "gemini": "gemini-3.5-flash"
+    },
+    "no_inline_confidence_entities": 37,
+    "protocol_version": "2026-07-17-rich-distribution-v3-balanced",
+    "strategy": "standard",
+    "temperature": 1.0,
+    "trials": 3
+  },
+  "output_conditions": "results\\conditions_final_standard_salvaged.csv",
+  "output_conditions_sha256": "a690a1879df6061ee338b7773a85d056d2ef60561a22513d848b9bfc7267af34",
+  "output_raw": "results\\run_final_standard_salvaged_raw.csv",
+  "output_raw_sha256": "5754ede283c469231fbfa9be667f18c56cf77ce304873c107f8f20c61c811a70",
+  "protocol_version": "2026-07-17-rich-distribution-v3-balanced",
+  "replaced_or_recovered_conditions": 265,
+  "retained_conditions": 1085,
+  "run_ids_preserved": [
+    "00cd3a32",
+    "035de083",
+    "09791f7a",
+    "0cfee62b",
+    "10aaaefb",
+    "10e42f9d",
+    "11bc136e",
+    "13d3de0a",
+    "13f0ff69",
+    "14c64622",
+    "1597a275",
+    "17874e26",
+    "183103c0",
+    "1e207e55",
+    "1e67dda0",
+    "1eb149f2",
+    "1f762db2",
+    "22de4bbf",
+    "2305d612",
+    "2ad8c05b",
+    "2e38ada1",
+    "326e7fb4",
+    "33f2e142",
+    "34d8b11b",
+    "38c01748",
+    "3e3b0e01",
+    "404d4285",
+    "4277adb4",
+    "49d3d292",
+    "4cb1c6d4",
+    "4f7a8c9d",
+    "55730a4e",
+    "6538c6fe",
+    "675f855a",
+    "69b18f4d",
+    "6a2ca3de",
+    "6c8dafe5",
+    "6dffb177",
+    "7132ba3c",
+    "7556b5ac",
+    "7679d87a",
+    "803490ee",
+    "81e6eba5",
+    "835a1d7e",
+    "863c29db",
+    "88ea337f",
+    "8932321c",
+    "8a09cb51",
+    "8b5c6ddf",
+    "907e54e6",
+    "914c8be6",
+    "95f2eaed",
+    "9601b74e",
+    "9712581d",
+    "9818fbb6",
+    "9c1aa010",
+    "a3a5442a",
+    "a98363dd",
+    "a9a448c9",
+    "aa6aae6e",
+    "abed452a",
+    "ae978522",
+    "afdfbf09",
+    "b3dbcb82",
+    "b8cb600a",
+    "ba5527fe",
+    "ba897e10",
+    "c292f1a3",
+    "c2c0a139",
+    "c3b2867c",
+    "c6253c98",
+    "c62e48bb",
+    "c96a681c",
+    "cc066a63",
+    "d2b5ffcc",
+    "d3795b41",
+    "d5fd4a89",
+    "d7237067",
+    "d8cbbbd9",
+    "db29a597",
+    "dd82ac93",
+    "e23ae815",
+    "ee40f69b",
+    "ee96e9fb",
+    "f3216564",
+    "f66e1482",
+    "f90b63a4",
+    "fd05b9b4",
+    "fe6a45f6",
+    "fff38981"
+  ],
+  "source_conditions": "results\\conditions_final_standard.csv",
+  "source_hashes": {
+    "conditions_sha256": "ffba9230d7b8f9e0b08556a003417f6c3a93bcb66e6d943c09b46c4f76643906",
+    "raw_sha256": "0190a32c7365068a96d63b4876cdd7a92bfe4bb41f10d1ab47d5cf783d9bd33b"
+  },
+  "source_raw": "results\\run_final_standard_raw.csv",
+  "status": "complete_and_validated",
+  "total_conditions": 1350,
+  "total_terminal_primary_samples": 4050
+}

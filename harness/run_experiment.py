@@ -109,7 +109,9 @@ RATIO_COUNTERBALANCE_ORDER = ("4:0", "3:1", "2:2", "4:1", "2:1", "3:2")
 GEMINI_MAX_OUTPUT_TOKENS = 2048
 OPENROUTER_DEFAULT_MAX_TOKENS = 2048
 OPENROUTER_CLAUDE_MAX_TOKENS = 4096
-MAX_RETRIES = 4  # exponential-backoff attempts on 429/5xx/connection errors
+MAX_RETRIES = 4  # total Gemini attempts on 429/5xx/connection errors
+OPENROUTER_MAX_RETRIES = 4  # SDK retries after the initial OpenRouter request
+GENERIC_GEMINI_400_RETRIES = 2  # extra tries for one observed transient 400 shape
 DEFAULT_FORMAT_RETRIES = 2  # extra byte-identical calls after malformed output
 FATAL_HTTP_STATUS_CODES = {400, 401, 402, 403, 404, 422}
 
@@ -609,6 +611,22 @@ def is_fatal_collection_error(exc):
     return exception_status_code(exc) in FATAL_HTTP_STATUS_CODES
 
 
+def is_retryable_generic_gemini_400(exc):
+    """Recognize the one content-independent Gemini 400 observed in production.
+
+    The identical E061 prompt succeeded twice before Gemini returned this bare
+    INVALID_ARGUMENT response on repetition three.  It carries no field-level
+    diagnosis, so two byte-identical retries are safer than treating it as a
+    permanent malformed request.  Other 400 responses remain fatal.
+    """
+    return (
+        exception_status_code(exc) == 400
+        and str(getattr(exc, "status", "")).strip() == "INVALID_ARGUMENT"
+        and str(getattr(exc, "message", "")).strip()
+        == "Request contains an invalid argument."
+    )
+
+
 def iter_response_attempts(call_fn, prompt, entity, phase, ask_inline,
                            parse_fn, max_format_retries=DEFAULT_FORMAT_RETRIES,
                            first_future=None):
@@ -888,8 +906,9 @@ def validate_completion_gate(condition_rows, expected_by_model, expected_samples
 def call_with_backoff(fn, max_retries=MAX_RETRIES, base_delay=1.0, max_delay=65.0):
     """Retry `fn` on transient errors (429 / 5xx / connection) with exponential
     backoff + jitter. Used for the Gemini path; the OpenAI SDK does this
-    internally via max_retries. Non-transient errors (e.g. 400/404) raise
-    immediately.
+    internally via max_retries. Non-transient errors raise immediately, except
+    for the exact content-independent Gemini INVALID_ARGUMENT shape recognized
+    by :func:`is_retryable_generic_gemini_400`.
 
     When a 429 carries a server-supplied retryDelay (Gemini per-minute quota
     resets), honor it instead of the shorter exponential delay so the retry
@@ -921,24 +940,58 @@ def call_with_backoff(fn, max_retries=MAX_RETRIES, base_delay=1.0, max_delay=65.
         m = re.search(r"retry.?delay['\"]?\s*:\s*['\"]?(\d+)", str(exc), re.I)
         return int(m.group(1)) if m else None
 
-    last = None
-    for attempt in range(max_retries):
+    if max_retries < 1:
+        raise ValueError("max_retries must be at least 1")
+
+    transient_retries_left = max_retries - 1
+    generic_400_retries_left = GENERIC_GEMINI_400_RETRIES
+    total_attempt_limit = max(max_retries, GENERIC_GEMINI_400_RETRIES + 1)
+    total_attempts = 0
+    delay_attempt = 0
+    while True:
+        total_attempts += 1
         try:
             return fn()
         except genai_errors.ClientError as exc:
-            if not _is_transient(exc):  # 400/404 etc. — don't retry
+            if is_retryable_generic_gemini_400(exc):
+                if (
+                    generic_400_retries_left <= 0
+                    or total_attempts >= total_attempt_limit
+                ):
+                    raise
+                generic_400_retries_left -= 1
+            elif _is_transient(exc):
+                if (
+                    transient_retries_left <= 0
+                    or total_attempts >= total_attempt_limit
+                ):
+                    raise
+                transient_retries_left -= 1
+            else:
                 raise
             last = exc
         except (genai_errors.ServerError, genai_errors.APIError) as exc:
+            if (
+                transient_retries_left <= 0
+                or total_attempts >= total_attempt_limit
+            ):
+                raise
+            transient_retries_left -= 1
             last = exc
         except NETWORK_ERRORS as exc:
+            if (
+                transient_retries_left <= 0
+                or total_attempts >= total_attempt_limit
+            ):
+                raise
+            transient_retries_left -= 1
             last = exc
-        backoff = base_delay * (2 ** attempt)
+        backoff = base_delay * (2 ** delay_attempt)
         server_delay = _server_retry_delay(last) or 0
         # wait at least as long as the server asks (+small buffer), capped
         delay = min(max(backoff, server_delay + 1) + random.uniform(0, 0.5), max_delay)
         time.sleep(delay)
-    raise last
+        delay_attempt += 1
 
 
 def gemini_usage_tokens(usage):
@@ -1336,7 +1389,7 @@ def main():
                 client = OpenAI(
                     base_url="https://openrouter.ai/api/v1",
                     api_key=os.environ["OPENROUTER_API_KEY"],
-                    max_retries=MAX_RETRIES,
+                    max_retries=OPENROUTER_MAX_RETRIES,
                 )
                 callers[slot] = {
                     "provider": "openrouter",
@@ -1549,8 +1602,11 @@ def main():
                             exc = attempt["exception"]
                             if exc is not None:
                                 row["error"] = f"{type(exc).__name__}: {exc}"
-                                if is_fatal_collection_error(exc):
-                                    fatal_message = row["error"]
+                                # Provider-level retries are already exhausted
+                                # before an exception reaches this layer.  Stop
+                                # immediately instead of spending more calls on
+                                # a run that cannot pass the completion gate.
+                                fatal_message = row["error"]
                             else:
                                 raw = attempt["raw"]
                                 ptok = attempt["prompt_tokens"]
@@ -1608,6 +1664,9 @@ def main():
                             elif row["format_error"]:
                                 row["attempt_status"] = "format_exhausted"
                                 row["trial_record"] = 1
+                                fatal_message = (
+                                    "format_exhausted: " + row["format_error"]
+                                )
                             else:
                                 row["attempt_status"] = "accepted"
                                 row["trial_record"] = 1
@@ -1729,8 +1788,7 @@ def main():
                             exc = attempt["exception"]
                             if exc is not None:
                                 row["error"] = f"{type(exc).__name__}: {exc}"
-                                if is_fatal_collection_error(exc):
-                                    fatal_message = row["error"]
+                                fatal_message = row["error"]
                             else:
                                 posthoc_raw_attempt = attempt["raw"]
                                 ptok = attempt["prompt_tokens"]
@@ -1778,6 +1836,9 @@ def main():
                             elif row["format_error"]:
                                 row["attempt_status"] = "format_exhausted"
                                 row["trial_record"] = 1
+                                fatal_message = (
+                                    "format_exhausted: " + row["format_error"]
+                                )
                             else:
                                 row["attempt_status"] = "accepted"
                                 row["trial_record"] = 1

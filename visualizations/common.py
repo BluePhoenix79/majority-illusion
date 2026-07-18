@@ -142,10 +142,10 @@ ABSTENTION_PATTERNS = (
 # response that merely *mentions* conflict and still supplies a claim value is
 # classified MAJ/MIN/COM rather than FLAG.
 TERSE_ABSTENTION_PATTERNS = (
-    r"^(?:unknown|undetermined|unresolved|indeterminate)"
+    r"^(?:unknown|unclear|undetermined|unresolved|indeterminate)"
     r"(?:\s+(?:answer|value|result|resolution))?[.!]?$",
     r"^(?:the\s+)?(?:answer|value|result|resolution)\s+is\s+"
-    r"(?:unknown|undetermined|unresolved|indeterminate)[.!]?$",
+    r"(?:unknown|unclear|undetermined|unresolved|indeterminate)[.!]?$",
     r"^(?:conflict|conflicting|source\s+conflict|document\s+conflict|"
     r"conflicting\s+(?:sources?|information|evidence|documents?|reports?))"
     r"(?:\s+in\s+(?:the\s+)?(?:sources?|documents?|reports?))?[.!]?$",

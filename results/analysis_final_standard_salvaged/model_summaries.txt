@@ -1,0 +1,465 @@
+========================================================================================
+RQ1 majority selection adjusted for distribution arm
+Method: GEE exchangeable/entity-clustered
+Formula: is_maj ~ C(ratio) * C(model_id) + C(distribution_request_assigned) * C(ratio) + C(strategy) + C(layout_index)
+Conditions: 1338; entity clusters: 75
+                               GEE Regression Results                              
+===================================================================================
+Dep. Variable:                      is_maj   No. Observations:                 1338
+Model:                                 GEE   No. clusters:                       75
+Method:                        Generalized   Min. cluster size:                  16
+                      Estimating Equations   Max. cluster size:                  18
+Family:                           Binomial   Mean cluster size:                17.8
+Dependence structure:         Exchangeable   Num. iterations:                    60
+Date:                     Sat, 18 Jul 2026   Scale:                           1.000
+Covariance type:                    robust   Time:                         00:38:44
+=============================================================================================================================
+                                                                coef    std err          z      P>|z|      [0.025      0.975]
+-----------------------------------------------------------------------------------------------------------------------------
+Intercept                                                        nan        nan        nan        nan         nan         nan
+C(ratio)[T.2:2]                                                  nan        nan        nan        nan         nan         nan
+C(ratio)[T.3:1]                                                  nan        nan        nan        nan         nan         nan
+C(ratio)[T.3:2]                                                  nan        nan        nan        nan         nan         nan
+C(ratio)[T.4:0]                                                  nan        nan        nan        nan         nan         nan
+C(ratio)[T.4:1]                                                  nan        nan        nan        nan         nan         nan
+C(model_id)[T.deepseek/deepseek-v4-flash]                        nan        nan        nan        nan         nan         nan
+C(model_id)[T.gemini-3.5-flash]                                  nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]                          nan        nan        nan        nan         nan         nan
+C(ratio)[T.2:2]:C(model_id)[T.deepseek/deepseek-v4-flash]        nan        nan        nan        nan         nan         nan
+C(ratio)[T.3:1]:C(model_id)[T.deepseek/deepseek-v4-flash]        nan        nan        nan        nan         nan         nan
+C(ratio)[T.3:2]:C(model_id)[T.deepseek/deepseek-v4-flash]        nan        nan        nan        nan         nan         nan
+C(ratio)[T.4:0]:C(model_id)[T.deepseek/deepseek-v4-flash]        nan        nan        nan        nan         nan         nan
+C(ratio)[T.4:1]:C(model_id)[T.deepseek/deepseek-v4-flash]        nan        nan        nan        nan         nan         nan
+C(ratio)[T.2:2]:C(model_id)[T.gemini-3.5-flash]                  nan        nan        nan        nan         nan         nan
+C(ratio)[T.3:1]:C(model_id)[T.gemini-3.5-flash]                  nan        nan        nan        nan         nan         nan
+C(ratio)[T.3:2]:C(model_id)[T.gemini-3.5-flash]                  nan        nan        nan        nan         nan         nan
+C(ratio)[T.4:0]:C(model_id)[T.gemini-3.5-flash]                  nan        nan        nan        nan         nan         nan
+C(ratio)[T.4:1]:C(model_id)[T.gemini-3.5-flash]                  nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.2:2]          nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.3:1]          nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.3:2]          nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.4:0]          nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.4:1]          nan        nan        nan        nan         nan         nan
+==============================================================================
+Skew:                             nan   Kurtosis:                          nan
+Centered skew:                    nan   Centered kurtosis:                 nan
+==============================================================================
+
+========================================================================================
+RQ1 subjective post-hoc confidence adjusted for distribution arm
+Method: GEE exchangeable/entity-clustered
+Formula: subjective_posthoc_confidence ~ C(ratio) * C(model_id) + C(distribution_request_assigned) * C(ratio) + C(strategy) + C(layout_index)
+Conditions: 1338; entity clusters: 75
+                                   GEE Regression Results                                   
+============================================================================================
+Dep. Variable:        subjective_posthoc_confidence   No. Observations:                 1338
+Model:                                          GEE   No. clusters:                       75
+Method:                                 Generalized   Min. cluster size:                  16
+                               Estimating Equations   Max. cluster size:                  18
+Family:                                    Gaussian   Mean cluster size:                17.8
+Dependence structure:                  Exchangeable   Num. iterations:                     4
+Date:                              Sat, 18 Jul 2026   Scale:                         131.698
+Covariance type:                             robust   Time:                         00:38:44
+=============================================================================================================================
+                                                                coef    std err          z      P>|z|      [0.025      0.975]
+-----------------------------------------------------------------------------------------------------------------------------
+Intercept                                                    65.4905      1.763     37.145      0.000      62.035      68.946
+C(ratio)[T.2:2]                                              -8.8323      2.634     -3.353      0.001     -13.994      -3.670
+C(ratio)[T.3:1]                                               9.9164      2.564      3.868      0.000       4.891      14.942
+C(ratio)[T.3:2]                                               0.8834      2.619      0.337      0.736      -4.249       6.016
+C(ratio)[T.4:0]                                              33.1791      1.760     18.854      0.000      29.730      36.628
+C(ratio)[T.4:1]                                              14.4739      2.286      6.332      0.000       9.994      18.954
+C(model_id)[T.deepseek/deepseek-v4-flash]                    22.6933      1.662     13.651      0.000      19.435      25.951
+C(model_id)[T.gemini-3.5-flash]                              32.5378      1.660     19.598      0.000      29.284      35.792
+C(distribution_request_assigned)[T.1.0]                      -2.8102      1.653     -1.700      0.089      -6.051       0.430
+C(ratio)[T.2:2]:C(model_id)[T.deepseek/deepseek-v4-flash]   -12.8647      3.386     -3.799      0.000     -19.501      -6.228
+C(ratio)[T.3:1]:C(model_id)[T.deepseek/deepseek-v4-flash]    -6.5467      2.033     -3.221      0.001     -10.530      -2.563
+C(ratio)[T.3:2]:C(model_id)[T.deepseek/deepseek-v4-flash]   -11.5600      2.914     -3.967      0.000     -17.271      -5.849
+C(ratio)[T.4:0]:C(model_id)[T.deepseek/deepseek-v4-flash]   -21.3600      1.663    -12.844      0.000     -24.620     -18.100
+C(ratio)[T.4:1]:C(model_id)[T.deepseek/deepseek-v4-flash]    -9.3600      1.951     -4.798      0.000     -13.184      -5.536
+C(ratio)[T.2:2]:C(model_id)[T.gemini-3.5-flash]               7.3283      2.306      3.177      0.001       2.808      11.849
+C(ratio)[T.3:1]:C(model_id)[T.gemini-3.5-flash]              -8.4999      2.094     -4.059      0.000     -12.604      -4.396
+C(ratio)[T.3:2]:C(model_id)[T.gemini-3.5-flash]              -2.6578      2.281     -1.165      0.244      -7.129       1.813
+C(ratio)[T.4:0]:C(model_id)[T.gemini-3.5-flash]             -31.2045      1.654    -18.869      0.000     -34.446     -27.963
+C(ratio)[T.4:1]:C(model_id)[T.gemini-3.5-flash]             -13.7645      1.885     -7.301      0.000     -17.459     -10.070
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.2:2]       7.6964      3.112      2.473      0.013       1.597      13.796
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.3:1]       1.7176      2.341      0.734      0.463      -2.870       6.305
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.3:2]      -1.3752      3.007     -0.457      0.647      -7.269       4.518
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.4:0]       2.8043      1.638      1.712      0.087      -0.406       6.015
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.4:1]       3.0120      1.966      1.532      0.126      -0.842       6.866
+==============================================================================
+Skew:                         -2.2370   Kurtosis:                       9.7676
+Centered skew:                -2.0307   Centered kurtosis:              8.6495
+==============================================================================
+
+========================================================================================
+RQ2 banking-versus-general conflict flagging adjusted for arm
+Method: GEE exchangeable/entity-clustered
+Formula: is_flag ~ C(domain) * C(ratio) + C(domain) * C(distribution_request_assigned) + C(domain) * C(strategy) + C(model_id) + C(layout_index)
+Conditions: 1338; entity clusters: 75
+                               GEE Regression Results                              
+===================================================================================
+Dep. Variable:                     is_flag   No. Observations:                 1338
+Model:                                 GEE   No. clusters:                       75
+Method:                        Generalized   Min. cluster size:                  16
+                      Estimating Equations   Max. cluster size:                  18
+Family:                           Binomial   Mean cluster size:                17.8
+Dependence structure:         Exchangeable   Num. iterations:                    60
+Date:                     Sat, 18 Jul 2026   Scale:                           1.000
+Covariance type:                    robust   Time:                         00:38:44
+================================================================================================================================
+                                                                   coef    std err          z      P>|z|      [0.025      0.975]
+--------------------------------------------------------------------------------------------------------------------------------
+Intercept                                                           nan        nan        nan        nan         nan         nan
+C(domain)[T.general]                                                nan        nan        nan        nan         nan         nan
+C(ratio)[T.2:2]                                                     nan        nan        nan        nan         nan         nan
+C(ratio)[T.3:1]                                                     nan        nan        nan        nan         nan         nan
+C(ratio)[T.3:2]                                                     nan        nan        nan        nan         nan         nan
+C(ratio)[T.4:0]                                                     nan        nan        nan        nan         nan         nan
+C(ratio)[T.4:1]                                                     nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]                             nan        nan        nan        nan         nan         nan
+C(model_id)[T.deepseek/deepseek-v4-flash]                           nan        nan        nan        nan         nan         nan
+C(model_id)[T.gemini-3.5-flash]                                     nan        nan        nan        nan         nan         nan
+C(domain)[T.general]:C(ratio)[T.2:2]                                nan        nan        nan        nan         nan         nan
+C(domain)[T.general]:C(ratio)[T.3:1]                                nan        nan        nan        nan         nan         nan
+C(domain)[T.general]:C(ratio)[T.3:2]                                nan        nan        nan        nan         nan         nan
+C(domain)[T.general]:C(ratio)[T.4:0]                                nan        nan        nan        nan         nan         nan
+C(domain)[T.general]:C(ratio)[T.4:1]                                nan        nan        nan        nan         nan         nan
+C(domain)[T.general]:C(distribution_request_assigned)[T.1.0]        nan        nan        nan        nan         nan         nan
+==============================================================================
+Skew:                             nan   Kurtosis:                          nan
+Centered skew:                    nan   Centered kurtosis:                 nan
+==============================================================================
+
+========================================================================================
+RQ2 numeric-only domain sensitivity adjusted for arm
+Method: GEE exchangeable/entity-clustered
+Formula: is_flag ~ C(domain) * C(ratio) + C(domain) * C(distribution_request_assigned) + C(domain) * C(strategy) + C(model_id) + C(layout_index)
+Conditions: 914; entity clusters: 51
+                               GEE Regression Results                              
+===================================================================================
+Dep. Variable:                     is_flag   No. Observations:                  914
+Model:                                 GEE   No. clusters:                       51
+Method:                        Generalized   Min. cluster size:                  17
+                      Estimating Equations   Max. cluster size:                  18
+Family:                           Binomial   Mean cluster size:                17.9
+Dependence structure:         Exchangeable   Num. iterations:                     5
+Date:                     Sat, 18 Jul 2026   Scale:                           1.000
+Covariance type:                    robust   Time:                         00:38:44
+================================================================================================================================
+                                                                   coef    std err          z      P>|z|      [0.025      0.975]
+--------------------------------------------------------------------------------------------------------------------------------
+Intercept                                                     -859.2947   1566.798     -0.548      0.583   -3930.163    2211.574
+C(domain)[T.general]                                            -0.3974   4237.215  -9.38e-05      1.000   -8305.187    8304.392
+C(ratio)[T.2:2]                                                  3.9194      0.854      4.590      0.000       2.246       5.593
+C(ratio)[T.3:1]                                              -1154.8975        nan        nan        nan         nan         nan
+C(ratio)[T.3:2]                                                  0.3686      0.978      0.377      0.706      -1.548       2.285
+C(ratio)[T.4:0]                                               -790.0739        nan        nan        nan         nan         nan
+C(ratio)[T.4:1]                                               -790.0739      0.132  -5997.605      0.000    -790.332    -789.816
+C(distribution_request_assigned)[T.1.0]                         31.6570        nan        nan        nan         nan         nan
+C(model_id)[T.deepseek/deepseek-v4-flash]                      822.4756        nan        nan        nan         nan         nan
+C(model_id)[T.gemini-3.5-flash]                                826.2110   2121.985      0.389      0.697   -3332.803    4985.225
+C(domain)[T.general]:C(ratio)[T.2:2]                             0.4968      1.162      0.428      0.669      -1.780       2.774
+C(domain)[T.general]:C(ratio)[T.3:1]                          -364.7862          0       -inf      0.000    -364.786    -364.786
+C(domain)[T.general]:C(ratio)[T.3:2]                            -0.4777      1.573     -0.304      0.761      -3.560       2.605
+C(domain)[T.general]:C(ratio)[T.4:0]                          -729.6099          0       -inf      0.000    -729.610    -729.610
+C(domain)[T.general]:C(ratio)[T.4:1]                          -729.6099          0       -inf      0.000    -729.610    -729.610
+C(domain)[T.general]:C(distribution_request_assigned)[T.1.0]     0.3863   9403.990   4.11e-05      1.000   -1.84e+04    1.84e+04
+==============================================================================
+Skew:                          2.8466   Kurtosis:                      27.7366
+Centered skew:                 2.6177   Centered kurtosis:             25.3938
+==============================================================================
+
+========================================================================================
+RQ3 normalized minority-position effect on is_maj adjusted for arm
+Method: GEE exchangeable/entity-clustered
+Formula: is_maj ~ minority_position_normalized * C(ratio) + minority_position_normalized * C(distribution_request_assigned) + C(model_id) + C(strategy) + C(layout_index)
+Conditions: 673; entity clusters: 75
+                               GEE Regression Results                              
+===================================================================================
+Dep. Variable:                      is_maj   No. Observations:                  673
+Model:                                 GEE   No. clusters:                       75
+Method:                        Generalized   Min. cluster size:                   8
+                      Estimating Equations   Max. cluster size:                   9
+Family:                           Binomial   Mean cluster size:                 9.0
+Dependence structure:         Exchangeable   Num. iterations:                    60
+Date:                     Sat, 18 Jul 2026   Scale:                           1.000
+Covariance type:                    robust   Time:                         00:38:44
+========================================================================================================================================
+                                                                           coef    std err          z      P>|z|      [0.025      0.975]
+----------------------------------------------------------------------------------------------------------------------------------------
+Intercept                                                                   nan        nan        nan        nan         nan         nan
+C(ratio)[T.3:1]                                                             nan        nan        nan        nan         nan         nan
+C(ratio)[T.4:1]                                                             nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]                                     nan        nan        nan        nan         nan         nan
+C(model_id)[T.deepseek/deepseek-v4-flash]                                   nan        nan        nan        nan         nan         nan
+C(model_id)[T.gemini-3.5-flash]                                             nan        nan        nan        nan         nan         nan
+minority_position_normalized                                                nan        nan        nan        nan         nan         nan
+minority_position_normalized:C(ratio)[T.3:1]                                nan        nan        nan        nan         nan         nan
+minority_position_normalized:C(ratio)[T.4:1]                                nan        nan        nan        nan         nan         nan
+minority_position_normalized:C(distribution_request_assigned)[T.1.0]        nan        nan        nan        nan         nan         nan
+==============================================================================
+Skew:                             nan   Kurtosis:                          nan
+Centered skew:                    nan   Centered kurtosis:                 nan
+==============================================================================
+
+========================================================================================
+RQ3 normalized minority-position effect on is_flag adjusted for arm
+Method: GEE exchangeable/entity-clustered
+Formula: is_flag ~ minority_position_normalized * C(ratio) + minority_position_normalized * C(distribution_request_assigned) + C(model_id) + C(strategy) + C(layout_index)
+Conditions: 673; entity clusters: 75
+                               GEE Regression Results                              
+===================================================================================
+Dep. Variable:                     is_flag   No. Observations:                  673
+Model:                                 GEE   No. clusters:                       75
+Method:                        Generalized   Min. cluster size:                   8
+                      Estimating Equations   Max. cluster size:                   9
+Family:                           Binomial   Mean cluster size:                 9.0
+Dependence structure:         Exchangeable   Num. iterations:                     2
+Date:                     Sat, 18 Jul 2026   Scale:                           1.000
+Covariance type:                    robust   Time:                         00:38:44
+========================================================================================================================================
+                                                                           coef    std err          z      P>|z|      [0.025      0.975]
+----------------------------------------------------------------------------------------------------------------------------------------
+Intercept                                                              -53.1021        nan        nan        nan         nan         nan
+C(ratio)[T.3:1]                                                        -25.4788      0.900    -28.319      0.000     -27.242     -23.715
+C(ratio)[T.4:1]                                                        -25.1812      0.871    -28.896      0.000     -26.889     -23.473
+C(distribution_request_assigned)[T.1.0]                                 24.9764      2.146     11.640      0.000      20.771      29.182
+C(model_id)[T.deepseek/deepseek-v4-flash]                            -5.449e-06        nan        nan        nan         nan         nan
+C(model_id)[T.gemini-3.5-flash]                                         26.0876        nan        nan        nan         nan         nan
+minority_position_normalized                                             0.4060        nan        nan        nan         nan         nan
+minority_position_normalized:C(ratio)[T.3:1]                            -0.8015      1.214     -0.660      0.509      -3.180       1.577
+minority_position_normalized:C(ratio)[T.4:1]                            -1.4996      1.194     -1.256      0.209      -3.839       0.840
+minority_position_normalized:C(distribution_request_assigned)[T.1.0]     0.8346        nan        nan        nan         nan         nan
+==============================================================================
+Skew:                          5.5619   Kurtosis:                      49.7755
+Centered skew:                 4.5887   Centered kurtosis:             38.7833
+==============================================================================
+
+========================================================================================
+RQ4 distribution-request effect on conflict_mention_rate
+Method: GEE exchangeable/entity-clustered
+Formula: conflict_mention_rate ~ C(distribution_request_assigned) * C(model_id) + C(distribution_request_assigned) * C(ratio) + C(strategy) + C(domain) + C(layout_index)
+Conditions: 1125; entity clusters: 75
+                               GEE Regression Results                               
+====================================================================================
+Dep. Variable:        conflict_mention_rate   No. Observations:                 1125
+Model:                                  GEE   No. clusters:                       75
+Method:                         Generalized   Min. cluster size:                  15
+                       Estimating Equations   Max. cluster size:                  15
+Family:                            Gaussian   Mean cluster size:                15.0
+Dependence structure:          Exchangeable   Num. iterations:                     2
+Date:                      Sat, 18 Jul 2026   Scale:                           0.010
+Covariance type:                     robust   Time:                         00:38:45
+=====================================================================================================================================================
+                                                                                        coef    std err          z      P>|z|      [0.025      0.975]
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Intercept                                                                             0.0960      0.023      4.227      0.000       0.051       0.140
+C(distribution_request_assigned)[T.1.0]                                              -0.0767      0.025     -3.082      0.002      -0.126      -0.028
+C(model_id)[T.deepseek/deepseek-v4-flash]                                            -0.0847      0.019     -4.377      0.000      -0.123      -0.047
+C(model_id)[T.gemini-3.5-flash]                                                      -0.0829      0.019     -4.256      0.000      -0.121      -0.045
+C(ratio)[T.2:2]                                                                       0.0270      0.014      1.885      0.059      -0.001       0.055
+C(ratio)[T.3:1]                                                                      -0.0300      0.014     -2.072      0.038      -0.058      -0.002
+C(ratio)[T.3:2]                                                                      -0.0120      0.014     -0.861      0.389      -0.039       0.015
+C(ratio)[T.4:1]                                                                      -0.0360      0.013     -2.676      0.007      -0.062      -0.010
+C(domain)[T.general]                                                                 -0.0018      0.007     -0.249      0.803      -0.016       0.012
+C(distribution_request_assigned)[T.1.0]:C(model_id)[T.deepseek/deepseek-v4-flash]     0.0619      0.022      2.770      0.006       0.018       0.106
+C(distribution_request_assigned)[T.1.0]:C(model_id)[T.gemini-3.5-flash]               0.0513      0.022      2.336      0.019       0.008       0.094
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.2:2]                               0.0344      0.021      1.672      0.095      -0.006       0.075
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.3:1]                               0.0300      0.014      2.072      0.038       0.002       0.058
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.3:2]                               0.0179      0.015      1.183      0.237      -0.012       0.047
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.4:1]                               0.0360      0.013      2.676      0.007       0.010       0.062
+==============================================================================
+Skew:                          4.7164   Kurtosis:                      28.3473
+Centered skew:                 4.0358   Centered kurtosis:             23.4716
+==============================================================================
+
+========================================================================================
+RQ4 distribution-request effect on abstention_rate
+Method: GEE exchangeable/entity-clustered
+Formula: abstention_rate ~ C(distribution_request_assigned) * C(model_id) + C(distribution_request_assigned) * C(ratio) + C(strategy) + C(domain) + C(layout_index)
+Conditions: 1125; entity clusters: 75
+                               GEE Regression Results                              
+===================================================================================
+Dep. Variable:             abstention_rate   No. Observations:                 1125
+Model:                                 GEE   No. clusters:                       75
+Method:                        Generalized   Min. cluster size:                  15
+                      Estimating Equations   Max. cluster size:                  15
+Family:                           Gaussian   Mean cluster size:                15.0
+Dependence structure:         Exchangeable   Num. iterations:                     2
+Date:                     Sat, 18 Jul 2026   Scale:                           0.022
+Covariance type:                    robust   Time:                         00:38:45
+=====================================================================================================================================================
+                                                                                        coef    std err          z      P>|z|      [0.025      0.975]
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Intercept                                                                             0.0006      0.005      0.118      0.906      -0.009       0.010
+C(distribution_request_assigned)[T.1.0]                                              -0.0276      0.015     -1.841      0.066      -0.057       0.002
+C(model_id)[T.deepseek/deepseek-v4-flash]                                            -0.0036      0.002     -1.454      0.146      -0.008       0.001
+C(model_id)[T.gemini-3.5-flash]                                                      -0.0036      0.002     -1.454      0.146      -0.008       0.001
+C(ratio)[T.2:2]                                                                       0.0060      0.004      1.454      0.146      -0.002       0.014
+C(ratio)[T.3:1]                                                                   -2.596e-17   1.81e-09  -1.43e-08      1.000   -3.56e-09    3.56e-09
+C(ratio)[T.3:2]                                                                   -2.481e-17   2.03e-09  -1.22e-08      1.000   -3.99e-09    3.99e-09
+C(ratio)[T.4:1]                                                                   -2.593e-17   1.83e-09  -1.42e-08      1.000   -3.58e-09    3.58e-09
+C(domain)[T.general]                                                                  0.0031      0.008      0.410      0.682      -0.012       0.018
+C(distribution_request_assigned)[T.1.0]:C(model_id)[T.deepseek/deepseek-v4-flash]     0.0527      0.012      4.462      0.000       0.030       0.076
+C(distribution_request_assigned)[T.1.0]:C(model_id)[T.gemini-3.5-flash]               0.2492      0.017     14.794      0.000       0.216       0.282
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.2:2]                               0.3595      0.031     11.733      0.000       0.299       0.420
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.3:1]                              -0.0702      0.017     -4.066      0.000      -0.104      -0.036
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.3:2]                               0.0175      0.025      0.702      0.483      -0.031       0.067
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.4:1]                              -0.0731      0.017     -4.382      0.000      -0.106      -0.040
+==============================================================================
+Skew:                          1.0923   Kurtosis:                       6.3466
+Centered skew:                 0.9957   Centered kurtosis:              5.7790
+==============================================================================
+
+========================================================================================
+RQ4 primary assigned-arm complete-case effect on is_flag
+Method: GEE exchangeable/entity-clustered
+Formula: is_flag ~ C(distribution_request_assigned) * C(model_id) + C(distribution_request_assigned) * C(ratio) + C(strategy) + C(domain) + C(layout_index)
+Conditions: 1113; entity clusters: 75
+                               GEE Regression Results                              
+===================================================================================
+Dep. Variable:                     is_flag   No. Observations:                 1113
+Model:                                 GEE   No. clusters:                       75
+Method:                        Generalized   Min. cluster size:                  13
+                      Estimating Equations   Max. cluster size:                  15
+Family:                           Binomial   Mean cluster size:                14.8
+Dependence structure:         Exchangeable   Num. iterations:                    60
+Date:                     Sat, 18 Jul 2026   Scale:                           1.000
+Covariance type:                    robust   Time:                         00:38:45
+=====================================================================================================================================================
+                                                                                        coef    std err          z      P>|z|      [0.025      0.975]
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Intercept                                                                                nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]                                                  nan        nan        nan        nan         nan         nan
+C(model_id)[T.deepseek/deepseek-v4-flash]                                                nan        nan        nan        nan         nan         nan
+C(model_id)[T.gemini-3.5-flash]                                                          nan        nan        nan        nan         nan         nan
+C(ratio)[T.2:2]                                                                          nan        nan        nan        nan         nan         nan
+C(ratio)[T.3:1]                                                                          nan        nan        nan        nan         nan         nan
+C(ratio)[T.3:2]                                                                          nan        nan        nan        nan         nan         nan
+C(ratio)[T.4:1]                                                                          nan        nan        nan        nan         nan         nan
+C(domain)[T.general]                                                                     nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(model_id)[T.deepseek/deepseek-v4-flash]        nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(model_id)[T.gemini-3.5-flash]                  nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.2:2]                                  nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.3:1]                                  nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.3:2]                                  nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.4:1]                                  nan        nan        nan        nan         nan         nan
+==============================================================================
+Skew:                             nan   Kurtosis:                          nan
+Centered skew:                    nan   Centered kurtosis:                 nan
+==============================================================================
+
+========================================================================================
+RQ4 secondary assigned-arm complete-case effect on is_maj
+Method: GEE exchangeable/entity-clustered
+Formula: is_maj ~ C(distribution_request_assigned) * C(model_id) + C(distribution_request_assigned) * C(ratio) + C(strategy) + C(domain) + C(layout_index)
+Conditions: 1113; entity clusters: 75
+                               GEE Regression Results                              
+===================================================================================
+Dep. Variable:                      is_maj   No. Observations:                 1113
+Model:                                 GEE   No. clusters:                       75
+Method:                        Generalized   Min. cluster size:                  13
+                      Estimating Equations   Max. cluster size:                  15
+Family:                           Binomial   Mean cluster size:                14.8
+Dependence structure:         Exchangeable   Num. iterations:                    60
+Date:                     Sat, 18 Jul 2026   Scale:                           1.000
+Covariance type:                    robust   Time:                         00:38:45
+=====================================================================================================================================================
+                                                                                        coef    std err          z      P>|z|      [0.025      0.975]
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Intercept                                                                                nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]                                                  nan        nan        nan        nan         nan         nan
+C(model_id)[T.deepseek/deepseek-v4-flash]                                                nan        nan        nan        nan         nan         nan
+C(model_id)[T.gemini-3.5-flash]                                                          nan        nan        nan        nan         nan         nan
+C(ratio)[T.2:2]                                                                          nan        nan        nan        nan         nan         nan
+C(ratio)[T.3:1]                                                                          nan        nan        nan        nan         nan         nan
+C(ratio)[T.3:2]                                                                          nan        nan        nan        nan         nan         nan
+C(ratio)[T.4:1]                                                                          nan        nan        nan        nan         nan         nan
+C(domain)[T.general]                                                                     nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(model_id)[T.deepseek/deepseek-v4-flash]        nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(model_id)[T.gemini-3.5-flash]                  nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.2:2]                                  nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.3:1]                                  nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.3:2]                                  nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.4:1]                                  nan        nan        nan        nan         nan         nan
+==============================================================================
+Skew:                             nan   Kurtosis:                          nan
+Centered skew:                    nan   Centered kurtosis:                 nan
+==============================================================================
+
+========================================================================================
+RQ4 secondary assigned-arm complete-case effect on is_com
+Method: GEE exchangeable/entity-clustered
+Formula: is_com ~ C(distribution_request_assigned) * C(model_id) + C(distribution_request_assigned) * C(ratio) + C(strategy) + C(domain) + C(layout_index)
+Conditions: 1113; entity clusters: 75
+                               GEE Regression Results                              
+===================================================================================
+Dep. Variable:                      is_com   No. Observations:                 1113
+Model:                                 GEE   No. clusters:                       75
+Method:                        Generalized   Min. cluster size:                  13
+                      Estimating Equations   Max. cluster size:                  15
+Family:                           Binomial   Mean cluster size:                14.8
+Dependence structure:         Exchangeable   Num. iterations:                    60
+Date:                     Sat, 18 Jul 2026   Scale:                           1.000
+Covariance type:                    robust   Time:                         00:38:45
+=====================================================================================================================================================
+                                                                                        coef    std err          z      P>|z|      [0.025      0.975]
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Intercept                                                                                nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]                                                  nan        nan        nan        nan         nan         nan
+C(model_id)[T.deepseek/deepseek-v4-flash]                                                nan        nan        nan        nan         nan         nan
+C(model_id)[T.gemini-3.5-flash]                                                          nan        nan        nan        nan         nan         nan
+C(ratio)[T.2:2]                                                                          nan        nan        nan        nan         nan         nan
+C(ratio)[T.3:1]                                                                          nan        nan        nan        nan         nan         nan
+C(ratio)[T.3:2]                                                                          nan        nan        nan        nan         nan         nan
+C(ratio)[T.4:1]                                                                          nan        nan        nan        nan         nan         nan
+C(domain)[T.general]                                                                     nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(model_id)[T.deepseek/deepseek-v4-flash]        nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(model_id)[T.gemini-3.5-flash]                  nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.2:2]                                  nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.3:1]                                  nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.3:2]                                  nan        nan        nan        nan         nan         nan
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.4:1]                                  nan        nan        nan        nan         nan         nan
+==============================================================================
+Skew:                             nan   Kurtosis:                          nan
+Centered skew:                    nan   Centered kurtosis:                 nan
+==============================================================================
+
+========================================================================================
+RQ4 secondary assigned-arm complete-case effect on is_flag_or_com
+Method: GEE exchangeable/entity-clustered
+Formula: is_flag_or_com ~ C(distribution_request_assigned) * C(model_id) + C(distribution_request_assigned) * C(ratio) + C(strategy) + C(domain) + C(layout_index)
+Conditions: 1113; entity clusters: 75
+                               GEE Regression Results                              
+===================================================================================
+Dep. Variable:              is_flag_or_com   No. Observations:                 1113
+Model:                                 GEE   No. clusters:                       75
+Method:                        Generalized   Min. cluster size:                  13
+                      Estimating Equations   Max. cluster size:                  15
+Family:                           Binomial   Mean cluster size:                14.8
+Dependence structure:         Exchangeable   Num. iterations:                     6
+Date:                     Sat, 18 Jul 2026   Scale:                           1.000
+Covariance type:                    robust   Time:                         00:38:45
+=====================================================================================================================================================
+                                                                                        coef    std err          z      P>|z|      [0.025      0.975]
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Intercept                                                                            -3.1414      0.602     -5.220      0.000      -4.321      -1.962
+C(distribution_request_assigned)[T.1.0]                                              -2.9309      1.163     -2.521      0.012      -5.209      -0.652
+C(model_id)[T.deepseek/deepseek-v4-flash]                                         -2995.3343      0.256  -1.17e+04      0.000   -2995.835   -2994.833
+C(model_id)[T.gemini-3.5-flash]                                                       3.9166      0.481      8.145      0.000       2.974       4.859
+C(ratio)[T.2:2]                                                                       2.0312      0.544      3.733      0.000       0.965       3.098
+C(ratio)[T.3:1]                                                                      -3.0399      0.678     -4.482      0.000      -4.369      -1.711
+C(ratio)[T.3:2]                                                                      -0.3150      0.544     -0.579      0.563      -1.382       0.752
+C(ratio)[T.4:1]                                                                   -2634.9911   4.25e-15   -6.2e+17      0.000   -2634.991   -2634.991
+C(domain)[T.general]                                                                  0.1837      0.265      0.694      0.488      -0.335       0.702
+C(distribution_request_assigned)[T.1.0]:C(model_id)[T.deepseek/deepseek-v4-flash]  2996.2068      0.256   1.17e+04      0.000    2995.706    2996.708
+C(distribution_request_assigned)[T.1.0]:C(model_id)[T.gemini-3.5-flash]               0.8250      1.059      0.779      0.436      -1.250       2.900
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.2:2]                               2.6053      0.910      2.864      0.004       0.823       4.388
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.3:1]                           -6842.7648          0       -inf      0.000   -6842.765   -6842.765
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.3:2]                               0.5481      0.812      0.675      0.500      -1.044       2.140
+C(distribution_request_assigned)[T.1.0]:C(ratio)[T.4:1]                           -4095.1500          0       -inf      0.000   -4095.150   -4095.150
+==============================================================================
+Skew:                          1.1840   Kurtosis:                       5.5248
+Centered skew:                 0.9314   Centered kurtosis:              4.3245
+==============================================================================
