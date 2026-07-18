@@ -144,7 +144,7 @@ def main():
         bbox_to_anchor=(0.5, 0.965), fontsize=9,
     )
     fig.suptitle(
-        "RQ4: effect of structured conflict-aware uncertainty elicitation",
+        "RQ3: effect of structured conflict-aware uncertainty elicitation",
         fontsize=13,
         y=1.0,
     )
