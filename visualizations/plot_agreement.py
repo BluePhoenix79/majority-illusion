@@ -78,10 +78,17 @@ def main():
     handles, labels = axes[0][0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="upper center", ncol=2,
                bbox_to_anchor=(0.5, -0.02), fontsize=9)
+    # Reserve a dedicated title band so the two-line figure title never
+    # collides with the center panel title. Keep the canvas explicitly opaque
+    # for consistent rendering in dark-background PDF/image viewers.
+    fig.subplots_adjust(top=0.80)
+    fig.patch.set_facecolor(SURFACE)
+    fig.patch.set_alpha(1.0)
     fig.suptitle(
         "Subjective best-resolution confidence and behavioral stability\n"
         f"{arm_display_label(df)}",
         fontsize=12,
+        y=1.0,
     )
     save_figure(fig, args, "fig5_agreement.png")
 

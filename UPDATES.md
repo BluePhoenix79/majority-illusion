@@ -510,3 +510,18 @@ tests/, results/conditions_final_standard_salvaged.csv, results/run_final_standa
 results/salvage_standard_manifest.json, results/analysis_final_standard_salvaged/, UPDATES.md
 Status: Retained 1,085 valid conditions and recovered 265; all 1,350 conditions and 4,050
 terminal samples pass strict validation. Original partial CSVs and hashes remain unchanged.
+
+## [Jul 18, 7:13 PM] — Kartigan
+Committed: Not yet — fixed the agreement chart title spacing and opaque export.
+Files: visualizations/plot_agreement.py, visualizations/figures/fig5_agreement.png,
+UPDATES.md
+Status: Regenerated from the final salvaged CSV with unchanged data and bars; the title no
+longer overlaps the model labels, the canvas is fully opaque, and all other tracked figures
+remain unchanged.
+
+## [Jul 18, 7:17 PM] — Kartigan
+Committed: Fixed the agreement chart title overlap and ensured an opaque export.
+Files: visualizations/plot_agreement.py, visualizations/figures/fig5_agreement.png,
+UPDATES.md
+Status: Figure 5 was regenerated from the final salvaged condition CSV with unchanged data;
+the title and model labels no longer collide, and all other tracked figures remain unchanged.
