@@ -530,3 +530,8 @@ the title and model labels no longer collide, and all other tracked figures rema
 Committed: Hardened local-secret exclusions before removing an accidentally committed env file from history.
 Files: .gitignore, UPDATES.md
 Status: Added coverage for environment variants, exact service-account filenames, and private-key files; history cleanup and verification follow.
+
+## [Jul 18, 10:49 PM] — Kartigan
+Committed: Removed the historical env credential file from every reachable Git revision.
+Files: Git history, UPDATES.md
+Status: Cleaned main was force-pushed and exact-key checks passed; teammates must re-clone or carefully rebase old work to prevent recontamination.
