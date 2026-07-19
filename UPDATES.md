@@ -525,3 +525,8 @@ Files: visualizations/plot_agreement.py, visualizations/figures/fig5_agreement.p
 UPDATES.md
 Status: Figure 5 was regenerated from the final salvaged condition CSV with unchanged data;
 the title and model labels no longer collide, and all other tracked figures remain unchanged.
+
+## [Jul 18, 10:36 PM] — Kartigan
+Committed: Hardened local-secret exclusions before removing an accidentally committed env file from history.
+Files: .gitignore, UPDATES.md
+Status: Added coverage for environment variants, exact service-account filenames, and private-key files; history cleanup and verification follow.
